@@ -36,7 +36,7 @@ W trkacie realizacji
 ### Operatory
 
 ```
-= + += - -= != == > < >= <=
+= + += - -= != == > < >= <= * /
 ```
 
 ### Typy danych
@@ -44,7 +44,7 @@ W trkacie realizacji
 ```
 int float string
 
-pole -> wartość, typ
+pole -> wartość, typ, kolumna, wiersz
 zakres -> poleStartowe:poleKońcowe
 ```
 
@@ -78,7 +78,7 @@ trim(cell) mid(cell, indexFrom, chars)
 ### Komentarze
 
 ```
-// Tak jak w TS
+# Komentarze będą poprzedzone hashem
 ```
 
 ## Przykłady obrazujące dopuszczalne konstrukcje językowe oraz ich semantykę.
@@ -158,7 +158,7 @@ main()
 {
     A1 = "Hello          World";
     A2 = trim(A1);
-    // A2 should be equal "Hello World"
+    // A2 should be equal to "Hello World"
 }
 ```
 
@@ -183,49 +183,58 @@ main()
 {
     A1 = "Would you like some crisps?";
     A2 = mid(A1, 7, 3);
-    // A2 should be equal "you"
+    // A2 should be equal to "you"
 }
 ```
-= + += - -= != == > < >= <=
+
 ## Gramatyka
 
 ```
 program = { functionDefinition };
+parametersList = referent, {",", referent};
 functionDefinition = identifier, "(", [parametersList], ")", block;
+functionCall = identifier, "(", [parametersList], ")";
 block = "{", {statement}, "}";
-statement = assignment | conditionalStatement | identifier;
+statement = assignment | conditionalStatement | identifier | returnStatement;
+returnStatement = "return", referent;
 conditionalStatement = ifStatement | forEachStatement;
-ifStatement = "if", expression, block, "else", block;
-forEachStatement = "foreach", expression, "in", expression;
-assignment = ("=" | "+=" | "-="), expression;
-expression = identifier | (identifier, (">" | "<" | ">=" | "<="), identifier);
+ifStatement = "if", referent, block, {"else", block};
+forEachStatement = "foreach", identifier, "in", referent, block;
+assignment = identifier ("=" | "+=" | "-="), referent;
+referent = expression | (expression, (">" | "<" | ">=" | "<=" | "==" | "!="), expression);
+expression = term, {("+" | "-"), term};
+term = factor, {{"*" | "/"}, factor};
+factor = integer | float | text | identifier | functionCall | "(", referent, ")";
 text = "\"", {char}, "\"";
-cellIdentifier = upperLetter, integer;
-identifier = letter, {letter};
+identifier = letter, {char | "_"};
 float = integer, ".", digit, {digit};
 integer = "0" | (nonZeroDigit, {digit});
-char = ({lowerLetter} | {upperLetter} | {digit}), {char},
+char = letter | digit;
+letter = lowerLetter | upperLetter;
 lowerLetter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z";
-upperLetter = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
-digit = "0" | nonZeroDigit
-nonZeroDigit = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+upperLetter = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z";
+digit = "0" | nonZeroDigit;
+nonZeroDigit = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 ```
 
 ## Obsługa błędów (jakiego rodzaju błędy będą wykrywane, tolerowane?, jak będzie wyglądał przykładowy komunikat o błędzie?).
 
-Błędy związane
-Pole które do którego jest przypisywana błędna wartość będzie wyświetłała wartość
+Błędy związane:
+Pole, które do którego jest przypisywana błędna wartość, będzie wyświetlać komunikat błędu:
+
 ```
 #ERROR
 ```
+
 Pola korzystające z błędnego pola będą miały warstość
+
 ```
 #BADCELLREF
 ```
 
 ## Sposób uruchomienia, wej./wyj.
 
-Będzie to aplikacja webowa która przyjmuje input tekstowy i po wciśnięciu przycisku "Generate" wygeneruje tabelę wyników
+Będzie to aplikacja webowa, która przyjmuje input tekstowy i po wciśnięciu przycisku "Generate" wygeneruje tabelę wyników
 
 ## Zwięzły opis sposobu testowania
 
