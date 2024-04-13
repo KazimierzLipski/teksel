@@ -29,6 +29,13 @@ export const multiCharTokens = {
     "!": TokenType.T_Neg,
 }
 
+export const firstMultiCharToken = {
+    "<": TokenType.T_LesOp,
+    ">": TokenType.T_GreOp,
+    "=": TokenType.T_AssignOp,
+    "!": TokenType.T_Neg,
+}
+
 export const keywords = {
     "if": TokenType.T_If,
     "else": TokenType.T_Else,

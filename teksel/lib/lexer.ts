@@ -1,6 +1,5 @@
 import { CharacterReader } from "./character-reader";
 import { Position, Token } from "./token";
-import { EOL } from "os";
 import { keywords, multiCharTokens, singleCharTokens } from "./token-dics";
 import { ErrorType, LexerError } from "./error-types";
 import { TokenType } from "./token-types";
@@ -9,14 +8,25 @@ export class Lexer {
   cr: CharacterReader;
   currentChar?: string;
   tokenPosition: Position;
-  MAX_ID_LEN = 256;
-  MAX_STR_LEN = 256;
-  MAX_INT_LEN = 256;
+  MAX_ID_LEN: number;
+  MAX_STR_LEN: number;
+  MAX_INT: number;
+  MAX_FLOAT_LEN: number;
 
-  constructor(cr: CharacterReader) {
+  constructor(
+    cr: CharacterReader,
+    MAX_ID_LEN = 256,
+    MAX_STR_LEN = 256,
+    MAX_INT = 2 ** 31 - 1, // 2147483647 -2147483647
+    MAX_FLOAT_LEN = 256
+  ) {
     this.cr = cr;
     this.nextChar();
     this.tokenPosition = this.cr.getPosition();
+    this.MAX_ID_LEN = MAX_ID_LEN;
+    this.MAX_STR_LEN = MAX_STR_LEN;
+    this.MAX_INT = MAX_INT;
+    this.MAX_FLOAT_LEN = MAX_FLOAT_LEN;
   }
 
   nextChar() {
@@ -24,9 +34,8 @@ export class Lexer {
   }
 
   buildToken() {
+    while (this.skipWhitespace() || this.skipComments()) {}
     this.tokenPosition = this.cr.getPosition();
-    this.skipWhitespace();
-    this.skipComments();
     return (
       this.buildEOF() ||
       this.buildMulticharOperator() ||
@@ -49,8 +58,7 @@ export class Lexer {
   skipComments() {
     if (this.currentChar !== "#") return false;
     this.nextChar();
-    while (!["\n", "\r\n", "\r"].includes(this.currentChar as string))
-      this.nextChar();
+    while (!["\n"].includes(this.currentChar as string)) this.nextChar();
     return true;
   }
 
@@ -62,12 +70,17 @@ export class Lexer {
   }
 
   buildMulticharOperator() {
+    // do przerobienia
     let string = "";
     while (Object.keys(multiCharTokens).includes(this.currentChar as string)) {
       string += this.currentChar!;
       this.nextChar();
     }
-    if (string.length === 0) return;
+    if (
+      string.length === 0 ||
+      multiCharTokens[string as keyof typeof multiCharTokens] === undefined
+    )
+      return;
     return new Token(
       string,
       multiCharTokens[string as keyof typeof multiCharTokens],
@@ -76,27 +89,23 @@ export class Lexer {
   }
 
   buildSinglecharOperator() {
-    if (!Object.keys(singleCharTokens).includes(this.currentChar!)) {
+    let tokenType =
+      singleCharTokens[this.currentChar as keyof typeof singleCharTokens];
+    if (tokenType === undefined) {
       return;
     }
     const string = this.currentChar;
     this.nextChar();
-    return new Token(
-      string,
-      singleCharTokens[string as keyof typeof singleCharTokens],
-      this.tokenPosition
-    );
+    return new Token(string, tokenType, this.tokenPosition);
   }
 
   buildIdentifierOrKeyword() {
-    if (!this.currentChar?.match(/^[a-z]+$/i)) return;
-    let length = 1;
+    if (!this.currentChar?.match(/^[a-zA-Z]+$/i)) return;
     let string = this.currentChar;
     this.nextChar();
 
-    while (this.currentChar?.match(/^[a-z0-9_]+$/i)) {
-      length++;
-      if (length >= this.MAX_ID_LEN) {
+    while (this.currentChar?.match(/^\w+$/i)) {
+      if (string.length === this.MAX_ID_LEN) {
         throw new LexerError(
           ErrorType.E_SyntaxError,
           this.cr.getPosition(),
@@ -106,64 +115,69 @@ export class Lexer {
       string += this.currentChar;
       this.nextChar();
     }
-    if (Object.keys(keywords).includes(string)) {
-      return new Token(
-        string,
-        keywords[string as keyof typeof keywords],
-        this.tokenPosition
-      );
+    let keyword = keywords[string as keyof typeof keywords];
+    if (keyword !== undefined) {
+      return new Token(string, keyword, this.tokenPosition);
     }
     return new Token(string, TokenType.T_Identifier, this.tokenPosition);
+  }
+
+  handleEscape() {
+    let charToAdd = this.currentChar;
+    if (this.currentChar == "\\") {
+      this.nextChar();
+      switch (this.currentChar as string) {
+        case "n":
+          charToAdd = "\n";
+          break;
+        case "t":
+          charToAdd = "\t";
+          break;
+        case '"':
+          charToAdd = '"';
+          break;
+        case "'":
+          charToAdd = "'";
+          break;
+        case "\\":
+          charToAdd = "\\";
+          length++;
+          break;
+        default:
+          throw new LexerError(
+            ErrorType.E_SyntaxError,
+            this.cr.getPosition(),
+            "escaping error"
+          );
+      }
+    }
+    return charToAdd;
   }
 
   buildString() {
     if (!['"', "'"].includes(this.currentChar!)) {
       return;
     }
-
-    let length = 1;
     let string = "";
     const openingChar = this.currentChar;
     this.nextChar();
     while (this.currentChar != openingChar) {
-      if (length >= this.MAX_STR_LEN) {
-        throw new LexerError(
-          ErrorType.E_SyntaxError,
-          this.cr.getPosition(),
-          "string too long"
-        );
-      }
-      let charToAdd = this.currentChar;
-      if (this.currentChar == "\\") {
-        this.nextChar();
-        switch (this.currentChar as string) {
-          case "n":
-            charToAdd = "\n";
-            break;
-          case "t":
-            charToAdd = "\t";
-            break;
-          case '"':
-            charToAdd = '"';
-            break;
-          case "'":
-            charToAdd = "'";
-            break;
-          case "\\":
-            charToAdd = "\\";
-            length++;
-            break;
-        }
-      }
-      if (!this.currentChar) {
+      let charToAdd = this.handleEscape();
+      if (charToAdd === undefined) {
         throw new LexerError(
           ErrorType.E_SyntaxError,
           this.cr.getPosition(),
           "string not ended"
         );
       }
+      if (string.length === this.MAX_STR_LEN) {
+        throw new LexerError(
+          ErrorType.E_SyntaxError,
+          this.cr.getPosition(),
+          "string too long"
+        );
+      }
       string += charToAdd;
-      length++;
       this.nextChar();
     }
     this.nextChar();
@@ -182,17 +196,19 @@ export class Lexer {
       );
     }
     while (this.currentChar?.match(/^\d+$/i)) {
-      number *= 10;
-      number += Number(this.currentChar);
-      if (length >= this.MAX_INT_LEN) {
+      let digit = Number(this.currentChar);
+      if ((this.MAX_INT - digit) / 10 >= number) {
+        number *= 10;
+        number += digit;
+        this.nextChar();
+        length++;
+      } else {
         throw new LexerError(
           ErrorType.E_SyntaxError,
           this.cr.getPosition(),
           "integer too long"
         );
       }
-      this.nextChar();
-      length++;
     }
     return [number, length];
   }
@@ -211,20 +227,19 @@ export class Lexer {
     this.nextChar();
     length++;
     while (this.currentChar?.match(/^\d+$/i)) {
-      fraction *= 10;
-      fraction += Number(this.currentChar);
-      if (length >= this.MAX_INT_LEN) {
+      if (length >= this.MAX_FLOAT_LEN) {
         throw new LexerError(
           ErrorType.E_SyntaxError,
           this.cr.getPosition(),
           "float too long"
         );
       }
+      fraction *= 10;
+      fraction += Number(this.currentChar);
       length++;
       exp++;
       this.nextChar();
     }
-    fraction = Number(fraction);
     let float = integer;
     float += fraction / 10 ** exp;
     return float;

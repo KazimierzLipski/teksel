@@ -60,8 +60,6 @@ describe("variable_assignment", () => {
     });
 });
 
-
-
 test("build_integers_long", () => {
   const SR = new CharacterReader("1000000000");
   const lexer = new Lexer(SR);
