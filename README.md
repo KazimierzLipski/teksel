@@ -4,9 +4,8 @@ Projekt na przedmiot TKOM.
 
 Język arkuszowy w TypeScript.
 
-- Arkusze
+- Arkusze kalkulacyjne
 - W TypeScript
-- Niesłychane...
 
 ## Opis projektu
 
@@ -23,7 +22,7 @@ Konsultant: p. Piotr Gawkowski
 
 ## Status projektu
 
-W trkacie realizacji
+W trakcie realizacji
 
 # Projekt wstępny
 
@@ -101,7 +100,7 @@ main()
     B2 = 7;
     B10 = 43;
     B11 = sum(B1:B10);
-    // B11 should equal 50
+    # B11 should equal 50
 }
 ```
 
@@ -112,7 +111,7 @@ main()
 {
     B1 = 43;
     B2 = if B1>0 10 else 54
-    // B2 should be 54
+    # B2 should be 54
 }
 ```
 
@@ -135,7 +134,7 @@ main()
     B5 = 10;
     B10 = 100;
     B11 = count(B1:B10);
-    // B11 should be equal to 3
+    # B11 should be equal to 3
 }
 ```
 
@@ -158,7 +157,7 @@ main()
 {
     A1 = "Hello          World";
     A2 = trim(A1);
-    // A2 should be equal to "Hello World"
+    # A2 should be equal to "Hello World"
 }
 ```
 
@@ -183,7 +182,7 @@ main()
 {
     A1 = "Would you like some crisps?";
     A2 = mid(A1, 7, 3);
-    // A2 should be equal to "you"
+    # A2 should be equal to "you"
 }
 ```
 
