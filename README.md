@@ -233,7 +233,15 @@ Pola korzystające z błędnego pola będą miały warstość
 
 ## Sposób uruchomienia, wej./wyj.
 
-Będzie to aplikacja webowa, która przyjmuje input tekstowy i po wciśnięciu przycisku "Generate" wygeneruje tabelę wyników
+Będzie to aplikacja webowa, która przyjmuje input tekstowy i po wciśnięciu przycisku "Generate" wygeneruje tabelę wyników.
+
+Aby odpalić projekt lokalnie, należy wpisać:
+
+```
+cd teksel
+npm i
+npm run dev
+```
 
 ## Zwięzły opis sposobu testowania
 
