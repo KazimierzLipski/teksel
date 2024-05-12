@@ -85,21 +85,21 @@ trim(cell) mid(cell, indexFrom, chars)
 ### Suma zakresu
 
 ```
-sum(range)
+def sum(range)
 {
-    let sum = 0;
+    sum = 0
     foreach cell in range
     {
-       sum += cell.value;
+       sum += cell.value
     }
-    return sum;
+    return sum
 }
 
-main()
+def main()
 {
-    B2 = 7;
-    B10 = 43;
-    B11 = sum(B1:B10);
+    B2 = 7
+    B10 = 43
+    B11 = sum(B1:B10)
     # B11 should equal 50
 }
 ```
@@ -107,10 +107,10 @@ main()
 ### Selekcja
 
 ```
-main()
+def main()
 {
     B1 = 43;
-    B2 = if B1>0 10 else 54
+    B2 = if (B1>0) {10} else {54}
     # B2 should be 54
 }
 ```
@@ -118,22 +118,22 @@ main()
 ### Zliczanie
 
 ```
-count(range)
+def count(range)
 {
-    let count = 0;
+    count = 0
     foreach cell in range
     {
-       count += if cell.value!=null 1 else 0
+       count += if {cell.value!=null} (1) else (0)
     }
-    return count;
+    return count
 }
 
-main()
+def main()
 {
-    B3 = 1;
-    B5 = 10;
-    B10 = 100;
-    B11 = count(B1:B10);
+    B3 = 1
+    B5 = 10
+    B10 = 100
+    B11 = count(B1:B10)
     # B11 should be equal to 3
 }
 ```
@@ -141,22 +141,22 @@ main()
 ### Obcinanie
 
 ```
-trim(cell)
+def trim(cell)
 {
-    let newCell = "";
-    let spaces = 0;
+    newCell = ""
+    spaces = 0
     foreach letter in cell
     {
-      spaces += if letter==" " 1 else -spaces
-      newCell += if spaces<=1 letter else ""
+      spaces += if (letter==" ") {1} else {-spaces}
+      newCell += if (spaces<=1) {letter} else {""}
     }
-    return newCell;
+    return newCell
 }
 
-main()
+def main()
 {
-    A1 = "Hello          World";
-    A2 = trim(A1);
+    A1 = "Hello          World"
+    A2 = trim(A1)
     # A2 should be equal to "Hello World"
 }
 ```
@@ -164,24 +164,24 @@ main()
 ### Wycinanie
 
 ```
-mid(cell, indexFrom, chars)
+def mid(cell, indexFrom, chars)
 {
-    let newCell = "";
-    let count = 0;
-    let tempNewLetter = "";
+    newCell = ""
+    count = 0
+    tempNewLetter = ""
     foreach letter in cell
     {
-      count += 1;
-      tempNewLetter = if count>=indexFrom letter else "";
-      newCell += if indexFrom+chars<count tempNewLetter else "";
+      count += 1
+      tempNewLetter = if (count>=indexFrom) {letter} else {""}
+      newCell += if (indexFrom+chars<count) {tempNewLetter} else {""}
     }
-    return newCell;
+    return newCell
 }
 
-main()
+def main()
 {
-    A1 = "Would you like some crisps?";
-    A2 = mid(A1, 7, 3);
+    A1 = "Would you like some crisps?"
+    A2 = mid(A1, 7, 3)
     # A2 should be equal to "you"
 }
 ```
@@ -190,22 +190,29 @@ main()
 
 ```
 program = { functionDefinition };
-parametersList = referent, {",", referent};
-functionDefinition = identifier, "(", [parametersList], ")", block;
-functionCall = identifier, "(", [parametersList], ")";
-block = "{", {statement}, "}";
-statement = assignment | conditionalStatement | identifier | returnStatement;
-returnStatement = "return", referent;
+parameterList = [identifier, {",", identifier}];
+functionDefinition = "def", identifier, "(", parameterList, ")", block;
+argumentList = [expression, {",", expression}];
+functionCallOrID = identifier, ["(", argumentList, ")"];
+block = "{", {anyStatement}, "}";
+anyStatement = assignment | conditionalStatement | identifier | returnStatement | factor;
+returnStatement = "return", [expression];
 conditionalStatement = ifStatement | forEachStatement;
-ifStatement = "if", referent, block, {"else", block};
-forEachStatement = "foreach", identifier, "in", referent, block;
-assignment = identifier ("=" | "+=" | "-="), referent;
-referent = expression | (expression, (">" | "<" | ">=" | "<=" | "==" | "!="), expression);
-expression = term, {("+" | "-"), term};
-term = factor, {{"*" | "/"}, factor};
-factor = integer | float | text | identifier | functionCall | "(", referent, ")";
+ifStatement = "if", expression, block, ["else", block];
+forEachStatement = "foreach", identifier, "in", expression, block;
+assignment = (identifier | cellOrRangeOrAttribute), ("=" | "+=" | "-="), expression;
+expression = orExpression;
+orExpression = andExpression, {"or", andExpression};
+andExpression = relativeExpression, {"and", relativeExpression};
+relativeExpression = additiveExpression, [(">" | "<" | ">=" | "<=" | "==" | "!="), additiveExpression];
+additiveExpression = multiplicativeExpression, {("+" | "-"), multiplicativeExpression};
+multiplicativeExpression = factor, {("*" | "/"), factor};
+cellOrRangeOrAttribute = cell, ([":", cell] | [".", "value"] | [".", "formula"]);
+factor = [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
+negation = "!";
 text = "\"", {char}, "\"";
 identifier = letter, {char | "_"};
+cell = upperLetter, nonZeroDigit, [digit];
 float = integer, ".", digit, {digit};
 integer = "0" | (nonZeroDigit, {digit});
 char = letter | digit;

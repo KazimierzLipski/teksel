@@ -40,7 +40,7 @@ export class Lexer {
       this.buildEOF() ||
       this.buildMulticharOperator() ||
       this.buildSinglecharOperator() ||
-      this.buildIdentifierOrKeyword() ||
+      this.buildIdentifierOrKeywordOrCell() ||
       this.buildString() ||
       this.buildNumber()
     );
@@ -99,10 +99,33 @@ export class Lexer {
     return new Token(string, tokenType, this.tokenPosition);
   }
 
-  buildIdentifierOrKeyword() {
-    if (!this.currentChar?.match(/^[a-zA-Z]+$/i)) return;
-    let string = this.currentChar;
+  getCell() {
+    // cell = upperLetter, nonZeroDigit, [digit];
+    if (!this.currentChar?.match(/^[A-Z]$/i)) return ["", false];
+    let cell = this.currentChar;
     this.nextChar();
+
+    if (!this.currentChar?.match(/^[1-9]+$/i)) return [cell, false];
+    cell += this.currentChar;
+    this.nextChar();
+
+    if (!this.currentChar?.match(/^\d+$/i)) return [cell, true];
+    cell += this.currentChar;
+    this.nextChar();
+
+    return [cell, true];
+  }
+
+  buildIdentifierOrKeywordOrCell() {
+    if (!this.currentChar?.match(/^[a-zA-Z]+$/i)) return;
+    let string = "";
+    let [cell, isCell] = this.getCell();
+    if (isCell) {
+      return new Token(cell, TokenType.T_Cell, this.tokenPosition);
+    } else {
+      string += cell;
+    }
+    // this.nextChar();
 
     while (this.currentChar?.match(/^\w+$/i)) {
       if (string.length === this.MAX_ID_LEN) {
@@ -112,12 +135,18 @@ export class Lexer {
           "too long identifier"
         );
       }
+      isCell = isCell && !!this.currentChar?.match(/^\d+$/i);
       string += this.currentChar;
       this.nextChar();
+    }
+    if (isCell && string.length < 1 && string.length > 3) {
+      isCell = false;
     }
     let keyword = keywords[string as keyof typeof keywords];
     if (keyword !== undefined) {
       return new Token(string, keyword, this.tokenPosition);
+    } else if (isCell) {
+      return new Token(string, TokenType.T_Cell, this.tokenPosition);
     }
     return new Token(string, TokenType.T_Identifier, this.tokenPosition);
   }
