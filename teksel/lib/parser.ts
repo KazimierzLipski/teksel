@@ -2,88 +2,58 @@ import { ErrorType, ParserError } from "./error-types";
 import { Lexer } from "./lexer";
 import {
   AddExpression,
-  AdditiveExpression,
   AndExpression,
   ArgumentList,
-  AssignmentCell,
-  AssignmentID,
-  AssignmentMinusEqualsCell,
-  AssignmentPlusEqualsCell,
+  Assignment,
   Block,
-  Cell,
-  CellAttribute,
   CellRange,
   DivideExpression,
   EqualExpression,
   Expression,
-  ExpressionType,
-  Factor,
+  FloatLiteral,
   ForEachStatement,
+  AttributeFormula,
   FunctionCall,
   FunctionDefinition,
   GreaterThanExpression,
   GreaterThanOrEqualExpression,
+  Identifier,
   IfStatement,
+  IntegerLiteral,
   LessThanExpression,
   LessThanOrEqualExpression,
   MultiplyExpression,
+  NegateExpression,
   NotEqualExpression,
   OrExpression,
-  OrExpressionType,
   Program,
   ReturnStatement,
   SubtractExpression,
+  TextLiteral,
+  AttributeValue,
+  UseStatement,
+  AssignmentPlusEquals,
+  AssignmentMinusEquals,
+  Cell,
 } from "./statements";
-import { Token } from "./token";
+import { Position, Token } from "./token";
 import {
   additiveCharTokens,
-  assignmentTokens,
+  assignmentConstructors,
   multiCharTokens,
   multiplicativeCharTokens,
+  relativeConstructors,
 } from "./token-dics";
 import { TokenType } from "./token-types";
 
-// program = { functionDefinition };
-// parameterList = identifier, {",", identifier};
-// functionDefinition = "def", identifier, "(", [parameterList], ")", block;
-// argumentList = expression, {",", expression};
-// functionCallOrID = identifier, ["(", [argumentList], ")"];
-// block = "{", {anyStatement}, "}";
-// anyStatement = assignment | conditionalStatement | identifier | returnStatement;
-// returnStatement = "return", [expression];
-// conditionalStatement = ifStatement | forEachStatement;
-// ifStatement = "if", expression, block, ["else", block];
-// forEachStatement = "foreach", identifier, "in", expression, block;
-// assignment = (identifier | cellAttribute), ("=" | "+=" | "-="), expression;
-// expression = orExpression;
-// orExpression = andExpression, {"or", andExpression};
-// andExpression = relativeExpression, {"and", relativeExpression};
-// relativeExpression = additiveExpression, [(">" | "<" | ">=" | "<=" | "==" | "!="), additiveExpression];
-// additiveExpression = multiplicativeExpression, {("+" | "-"), multiplicativeExpression};
-// multiplicativeExpression = factor, {("*" | "/"), factor};
-// cellOrRangeOrAttribute = cell, ([":", cell] | [".", identifier]);
-// factor = [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
-// negation = "-";
-// text = "\"", {char}, "\"";
-// identifier = letter, {char | "_"};
-// cell = upperLetter, integer;
-// float = integer, ".", digit, {digit};
-// integer = "0" | (nonZeroDigit, {digit});
-// char = letter | digit;
-// letter = lowerLetter | upperLetter;
-// lowerLetter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z";
-// upperLetter = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z";
-// digit = "0" | nonZeroDigit;
-// nonZeroDigit = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
-
 export class Parser {
   lexer: Lexer;
-  currentToken?: Token;
+  currentToken: Token;
   errors = [];
 
   constructor(lexer: Lexer) {
     this.lexer = lexer;
-    this.nextToken();
+    this.currentToken = this.lexer.buildToken();
   }
 
   nextToken = () => {
@@ -96,8 +66,22 @@ export class Parser {
     return token;
   };
 
+  throwUnexpectedToken = (message: string) => {
+    throw new ParserError(
+      ErrorType.E_SyntaxError,
+      this.currentToken?.position,
+      message + this.currentToken?.value
+    );
+  };
+
+  ifNotOfTypeThrowUnexpectedToken = (token: TokenType, message: string) => {
+    if (this.currentToken?.type !== token) {
+      this.throwUnexpectedToken(message);
+    }
+  };
+
   parseProgram = () => {
-    // program = { functionDefinition };
+    // program = { functionDefinition }; #NOSONAR
     const functionDefinitionMapDict = new Map<string, FunctionDefinition>();
     let functionDefinition = this.parseFunctionDefinition();
 
@@ -124,13 +108,10 @@ export class Parser {
       );
     }
 
-    if (this.currentToken?.type !== TokenType.T_EOF) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Unexpected token: " + this.currentToken
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_EOF,
+      "Expected EOF, got: "
+    );
 
     return new Program(functionDefinitionMapDict);
   };
@@ -150,11 +131,7 @@ export class Parser {
       if (nextParameter) {
         parametersList.push(nextParameter);
       } else {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a parameter, got: " + this.currentToken?.value
-        );
+        this.throwUnexpectedToken("Expected a parameter, got: ");
       }
     }
 
@@ -176,33 +153,23 @@ export class Parser {
       );
     }
 
-    if ((this.currentToken?.type as string) !== TokenType.T_OpenBracket) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected an opening bracket, got: " + this.currentToken?.value
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_OpenBracket,
+      "Expected an opening bracket, got: "
+    );
     this.consume();
 
     const parametersList = this.parseParametersList();
 
-    if ((this.currentToken?.type as string) !== TokenType.T_CloseBracket) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a closing bracket, got: " + this.currentToken?.value
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_CloseBracket,
+      "Expected a closing bracket, got: "
+    );
     this.consume();
 
     const block: Block = this.parseBlock();
     if (block === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a block, got: " + this.currentToken?.value
-      );
+      this.throwUnexpectedToken("Expected a block, got: ");
     }
 
     return new FunctionDefinition(position, identifier, parametersList, block);
@@ -224,60 +191,56 @@ export class Parser {
       if (nextParameter) {
         argumentList.push(nextParameter);
       } else {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected an argument, got: " + this.currentToken?.value
-        );
+        this.throwUnexpectedToken("Expected an argument, got: ");
       }
     }
 
     return new ArgumentList(position, argumentList);
   };
 
-  parseFunctionCallOrID = () => {
-    // functionCallOrID = identifier, ["(", [argumentList], ")"];
+  parseFunctionCall = (identifier: string, position: Position | undefined) => {
+    let argumentList;
+    if ((this.currentToken?.type as string) !== TokenType.T_OpenBracket) {
+      return undefined;
+    } else {
+      this.consume();
+      argumentList = this.parseArgumentList();
+
+      this.ifNotOfTypeThrowUnexpectedToken(
+        TokenType.T_CloseBracket,
+        "Expected a closing bracket, got: "
+      );
+      this.consume();
+      return new FunctionCall(position, identifier, argumentList);
+    }
+  };
+
+  functionCallOrIDAndOrAttribute = () => {
+    // functionCallOrIDAndOrAttribute = identifier, [("(", argumentList, ")")], ([".", "value"] | [".", "formula"]);
     const position = this.currentToken?.position;
-    const identifier = this.parseIdentifier();
+    let identifier = this.parseIdentifier();
     if (identifier === undefined) return undefined;
 
-    if ((this.currentToken?.type as string) !== TokenType.T_OpenBracket) {
-      return identifier;
-    }
-    this.consume();
+    let left =
+      this.parseFunctionCall(identifier, position) ??
+      new Identifier(position, identifier);
 
-    const argumentList = this.parseArgumentList();
-    if ((this.currentToken?.type as string) !== TokenType.T_CloseBracket) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a closing bracket, got: " + this.currentToken?.value
-      );
-    }
-    this.consume();
-
-    return new FunctionCall(position, identifier, argumentList);
+    return this.parseAttribute(left) ?? left;
   };
 
   parseBlock = () => {
     // block = "{", {anyStatement}, "}";
     const position = this.currentToken?.position;
     let block: (
-      | AssignmentCell
-      | AssignmentID
+      | Assignment
       | IfStatement
       | ForEachStatement
-      | string
-      | Factor
       | ReturnStatement
     )[] = [];
-    if (this.currentToken?.type !== TokenType.T_OpenCurly) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected an opening curly bracket, got: " + this.currentToken?.value
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_OpenCurly,
+      "Expected an opening curly bracket, got: "
+    );
     this.consume();
 
     let statement = this.parseAnyStatement();
@@ -286,36 +249,61 @@ export class Parser {
       statement = this.parseAnyStatement();
     }
 
-    if ((this.currentToken?.type as string) !== TokenType.T_CloseCurly) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a closing curly bracket, got: " + this.currentToken?.value
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_CloseCurly,
+      "Expected a closing curly bracket, got: "
+    );
     this.consume();
 
     return new Block(position, block);
   };
 
   parseAnyStatement = () => {
-    // anyStatement = assignment | conditionalStatement | identifier | returnStatement;
+    // anyStatement = assignment | conditionalStatement | identifier | returnStatement; #NOSONAR
     const anyStatement:
-      | AssignmentCell
-      | AssignmentID
+      | Assignment
       | IfStatement
       | ForEachStatement
-      | string
       | ReturnStatement
-      | Factor
       | undefined =
-      this.parseAssignmentOrID() ||
+      this.parseAssignment() ||
       this.parseConditionalStatement() ||
-      this.parseFactor() ||
       this.parseReturnStatement();
-    console.log("anyStatement", anyStatement)
     if (anyStatement === undefined) return undefined;
     return anyStatement;
+  };
+
+  parseUseExpression = () => {
+    // useIf = "use", expression, "if", expression, "else", expression;
+    if (this.currentToken?.type !== TokenType.T_Use) return undefined;
+    const position = this.currentToken?.position;
+    this.consume();
+
+    const expression: Expression | undefined = this.parseExpression();
+    if (expression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_If,
+      "Expected 'if', got: "
+    );
+    this.consume();
+
+    const ifExpression: Expression | undefined = this.parseExpression();
+    if (ifExpression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_Else,
+      "Expected 'else', got: "
+    );
+    this.consume();
+
+    const elseExpression: Expression | undefined = this.parseExpression();
+    if (elseExpression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    return new UseStatement(position, expression, ifExpression, elseExpression);
   };
 
   parseReturnStatement = () => {
@@ -330,7 +318,7 @@ export class Parser {
   };
 
   parseConditionalStatement = () => {
-    // conditionalStatement = ifStatement | forEachStatement;
+    // conditionalStatement = ifStatement | forEachStatement; #NOSONAR
     return this.parseIfStatement() || this.parseForEachStatement();
   };
 
@@ -341,34 +329,19 @@ export class Parser {
     this.consume();
 
     const expression: Expression | undefined = this.parseExpression();
-    if (expression === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a expression, got: " + this.currentToken?.value
-      );
-    }
+    if (expression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
 
     const block: Block | undefined = this.parseBlock();
-    if (block === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a block, got: " + this.currentToken?.value
-      );
-    }
+    if (block === undefined)
+      return this.throwUnexpectedToken("Expected a block, got: ");
 
     let elseBlock: Block | undefined;
     if ((this.currentToken?.type as string) === TokenType.T_Else) {
       this.consume();
       elseBlock = this.parseBlock();
-      if (elseBlock === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a block, got: " + this.currentToken?.value
-        );
-      }
+      if (elseBlock === undefined)
+        return this.throwUnexpectedToken("Expected a (else) block, got: ");
     }
 
     return new IfStatement(position, expression, block, elseBlock);
@@ -381,40 +354,22 @@ export class Parser {
     this.consume();
 
     const identifier = this.parseIdentifier();
-    if (identifier === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected an identifier, got: " + this.currentToken?.value
-      );
-    }
+    if (identifier === undefined)
+      return this.throwUnexpectedToken("Expected an identifier, got: ");
 
-    if ((this.currentToken?.type as string) !== TokenType.T_In) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected 'in', got: " + this.currentToken?.value
-      );
-    }
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_In,
+      "Expected 'in', got: "
+    );
     this.consume();
 
     const expression: Expression | undefined = this.parseExpression();
-    if (expression === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a expression, got: " + this.currentToken?.value
-      );
-    }
+    if (expression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
 
     const block: Block | undefined = this.parseBlock();
-    if (block === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a block, got: " + this.currentToken?.value
-      );
-    }
+    if (block === undefined)
+      return this.throwUnexpectedToken("Expected a block, got: ");
 
     return new ForEachStatement(position, identifier, expression, block);
   };
@@ -427,224 +382,105 @@ export class Parser {
     return op;
   };
 
-  parseAssignmentOrID = () => {
-    // assignment = (identifier | cellAttribute), ("=" | "+=" | "-="), expression;
+  parseAssignment = () => {
+    // assignment = (functionCallOrIDAndOrAttribute | cellOrRangeOrAttribute), ("=" | "+=" | "-="), (expression | useIf);
     const position = this.currentToken?.position;
-    let isCell = false;
-    let cellOrRangeOrAttribute: Cell | CellAttribute | CellRange | undefined =
-      undefined;
-    const identifier = this.parseIdentifier();
-    if (identifier === undefined) {
-      cellOrRangeOrAttribute = this.parseCellOrRangeOrAttribute();
-      if (cellOrRangeOrAttribute === undefined) return undefined;
-      isCell = true;
-    }
+    let left =
+      this.functionCallOrIDAndOrAttribute() ??
+      this.parseCellOrRangeOrAttribute();
 
-    const operator = this.getOperator(
-      assignmentTokens,
-      this.currentToken?.type
-    );
-    if(operator === undefined && identifier !== undefined) {
-      return identifier;
-    }
-    if (operator === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected an assignment operator, got: " + this.currentToken?.value
+    if (left === undefined) return undefined;
+
+    const constructor = assignmentConstructors.get(this.currentToken.type);
+
+    if (constructor === undefined)
+      return this.throwUnexpectedToken(
+        "Expected an assignment operator, got: "
       );
-    }
     this.consume();
 
-    let expression: Expression | undefined;
-    const ifStatement: IfStatement | undefined = this.parseIfStatement();
-    if (ifStatement === undefined) {
-      expression = this.parseExpression();
-    }
-    let assignor = expression === undefined ? ifStatement : expression;
-    if (assignor === undefined) {
-      throw new ParserError(
-        ErrorType.E_SyntaxError,
-        this.currentToken?.position,
-        "Expected a expression, got: " + this.currentToken?.value
+    let right = this.parseExpression();
+    if (right === undefined) {
+      return this.throwUnexpectedToken(
+        "Expected an (assigned) expression, got: "
       );
     }
 
-    if (isCell && cellOrRangeOrAttribute) {
-      switch (operator) {
-        case TokenType.T_AssignOp:
-          return new AssignmentCell(position, cellOrRangeOrAttribute, assignor);
-        case TokenType.T_PlusEqOp:
-          return new AssignmentPlusEqualsCell(
-            position,
-            cellOrRangeOrAttribute,
-            assignor
-          );
-        case TokenType.T_MinEqOp:
-          return new AssignmentMinusEqualsCell(
-            position,
-            cellOrRangeOrAttribute,
-            assignor
-          );
-      }
-    } else {
-      switch (operator) {
-        case TokenType.T_AssignOp:
-          return new AssignmentID(position, identifier, assignor);
-        case TokenType.T_PlusEqOp:
-          return new AssignmentPlusEqualsCell(position, identifier, assignor);
-        case TokenType.T_MinEqOp:
-          return new AssignmentMinusEqualsCell(position, identifier, assignor);
-      }
-    }
+    return constructor(position, left, right);
   };
 
   parseExpression = () => {
-    // expression = orExpression;
-    return new Expression(
-      this.currentToken?.position,
-      this.parseOrExpression()
-    );
+    // expression = orExpression; #NOSONAR
+    return this.parseOrExpression();
   };
 
   parseOrExpression = () => {
     // orExpression = andExpression, {"or", andExpression};
-    let leftAndExpression: OrExpressionType | undefined =
-      this.parseAndExpression();
-    if (leftAndExpression === undefined) return undefined;
+    let left: Expression | undefined = this.parseAndExpression();
+    if (left === undefined) return undefined;
 
     while (this.currentToken?.type === TokenType.T_OrOp) {
       const position = this.currentToken?.position;
       this.consume();
 
-      let rightAndExpression: OrExpressionType | undefined =
-        this.parseAndExpression();
-      if (rightAndExpression === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected an and expression, got: " + this.currentToken?.value
-        );
-      }
+      let right: Expression | undefined = this.parseAndExpression();
+      if (right === undefined)
+        return this.throwUnexpectedToken("Expected an and expression, got: ");
 
-      leftAndExpression = new OrExpression(
-        position,
-        leftAndExpression,
-        rightAndExpression
-      );
+      left = new OrExpression(position, left, right);
     }
 
-    return leftAndExpression;
+    return left;
   };
 
   parseAndExpression = () => {
     // andExpression = relativeExpression, {"and", relativeExpression};
-    let leftRelativeExpression: ExpressionType | undefined =
-      this.parseRelativeExpression();
-    if (leftRelativeExpression === undefined) return undefined;
+    let left: Expression | undefined = this.parseRelativeExpression();
+    if (left === undefined) return undefined;
 
-    let rightRelativeExpression: ExpressionType | undefined;
+    let right: Expression | undefined;
     while (this.currentToken?.type === TokenType.T_AndOp) {
       const position = this.currentToken?.position;
       this.consume();
 
-      rightRelativeExpression = this.parseRelativeExpression();
-      if (rightRelativeExpression === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a relative expression, got: " + this.currentToken?.value
+      right = this.parseRelativeExpression();
+      if (right === undefined)
+        return this.throwUnexpectedToken(
+          "Expected a relative expression, got: "
         );
-      }
-      leftRelativeExpression = new AndExpression(
-        position,
-        leftRelativeExpression,
-        rightRelativeExpression
-      );
+
+      left = new AndExpression(position, left, right);
     }
 
-    return leftRelativeExpression;
+    return left;
   };
 
-  parseRelativeExpression = () => {
+  parseRelativeExpression = (): Expression | undefined => {
     // relativeExpression = additiveExpression, [(">" | "<" | ">=" | "<=" | "==" | "!="), additiveExpression];
-    let leftAdditiveExpression: ExpressionType = this.parseAdditiveExpression();
-    if (leftAdditiveExpression === undefined) return undefined;
+    let left: Expression | undefined = this.parseAdditiveExpression();
+    if (left === undefined) return undefined;
 
-    const operator =
-      multiCharTokens[this.currentToken?.type as keyof typeof multiCharTokens];
-    if (operator) {
+    const constructor = relativeConstructors.get(this.currentToken.type);
+    if (constructor !== undefined) {
       const position = this.currentToken?.position;
       this.consume();
 
-      const rightAdditiveExpression: ExpressionType =
-        this.parseAdditiveExpression();
-      if (rightAdditiveExpression === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected an additive expression, got: " + this.currentToken?.value
+      const right: Expression | undefined = this.parseAdditiveExpression();
+      if (right === undefined)
+        return this.throwUnexpectedToken(
+          "Expected an additive expression, got:"
         );
-      }
 
-      switch (operator) {
-        case TokenType.T_LesOp:
-          leftAdditiveExpression = new LessThanExpression(
-            position,
-            leftAdditiveExpression,
-            rightAdditiveExpression
-          );
-          break;
-        case TokenType.T_GreOp:
-          leftAdditiveExpression = new GreaterThanExpression(
-            position,
-            rightAdditiveExpression,
-            leftAdditiveExpression
-          );
-          break;
-        case TokenType.T_LesEqOp:
-          leftAdditiveExpression = new LessThanOrEqualExpression(
-            position,
-            rightAdditiveExpression,
-            leftAdditiveExpression
-          );
-          break;
-        case TokenType.T_GreEqOp:
-          leftAdditiveExpression = new GreaterThanOrEqualExpression(
-            position,
-            leftAdditiveExpression,
-            rightAdditiveExpression
-          );
-          break;
-        case TokenType.T_EqOp:
-          leftAdditiveExpression = new EqualExpression(
-            position,
-            leftAdditiveExpression,
-            rightAdditiveExpression
-          );
-          break;
-        case TokenType.T_NotEqOp:
-          leftAdditiveExpression = new NotEqualExpression(
-            position,
-            leftAdditiveExpression,
-            rightAdditiveExpression
-          );
-          break;
-      }
+      left = constructor(position, left, right);
     }
-    return leftAdditiveExpression;
+    return left;
   };
 
   parseAdditiveExpression = () => {
     // additiveExpression = multiplicativeExpression, {("+" | "-"), multiplicativeExpression};
     const position = this.currentToken?.position;
-    let leftMultiplicativeExpression:
-      | Factor
-      | MultiplyExpression
-      | DivideExpression
-      | undefined
-      | AdditiveExpression = this.parseMultiplicativeExpression();
-    if (leftMultiplicativeExpression === undefined) return undefined;
+    let left: Expression | undefined = this.parseMultiplicativeExpression();
+    if (left === undefined) return undefined;
 
     let operator = this.getOperator(
       additiveCharTokens,
@@ -653,44 +489,31 @@ export class Parser {
     while (operator !== undefined) {
       this.consume();
 
-      const rightMultiplicativeExpression: ExpressionType =
+      const right: Expression | undefined =
         this.parseMultiplicativeExpression();
-      if (rightMultiplicativeExpression === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a multiplicative expression, got: " +
-            this.currentToken?.value
+      if (right === undefined)
+        return this.throwUnexpectedToken(
+          "Expected a multiplicative expression, got:"
         );
-      }
 
       switch (operator) {
         case TokenType.T_AddOp:
-          leftMultiplicativeExpression = new AddExpression(
-            position,
-            leftMultiplicativeExpression,
-            rightMultiplicativeExpression
-          );
+          left = new AddExpression(position, left, right);
           break;
         case TokenType.T_MinOp:
-          leftMultiplicativeExpression = new SubtractExpression(
-            position,
-            leftMultiplicativeExpression,
-            rightMultiplicativeExpression
-          );
+          left = new SubtractExpression(position, left, right);
           break;
       }
       operator = this.getOperator(additiveCharTokens, this.currentToken?.type);
     }
-    return leftMultiplicativeExpression;
+    return left;
   };
 
   parseMultiplicativeExpression = () => {
     // multiplicativeExpression = factor, {("*" | "/"), factor};
     const position = this.currentToken?.position;
-    let leftFactor: Factor | MultiplyExpression | DivideExpression | undefined =
-      this.parseFactor();
-    if (leftFactor === undefined) return undefined;
+    let left: Expression | undefined = this.parseFactor();
+    if (left === undefined) return undefined;
 
     let operator = this.getOperator(
       multiplicativeCharTokens,
@@ -699,25 +522,16 @@ export class Parser {
     while (operator !== undefined) {
       this.consume();
 
-      const rightFactor = this.parseFactor();
-      if (rightFactor === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a factor, got: " + this.currentToken?.value
-        );
-      }
+      const right = this.parseFactor();
+      if (right === undefined)
+        return this.throwUnexpectedToken("Expected a factor, got: ");
 
       switch (operator) {
         case TokenType.T_MulOp:
-          leftFactor = new MultiplyExpression(
-            position,
-            leftFactor,
-            rightFactor
-          );
+          left = new MultiplyExpression(position, left, right);
           break;
         case TokenType.T_DivOp:
-          leftFactor = new DivideExpression(position, leftFactor, rightFactor);
+          left = new DivideExpression(position, left, right);
           break;
       }
       operator = this.getOperator(
@@ -726,47 +540,45 @@ export class Parser {
       );
     }
 
-    return leftFactor;
+    return left;
+  };
+
+  parseAttribute = (left: Expression) => {
+    if (this.currentToken?.type !== TokenType.T_AccessOp) return undefined;
+    const position = this.currentToken?.position;
+    this.consume();
+
+    switch (this.currentToken?.type as string) {
+      case TokenType.T_Value:
+        this.consume();
+        return new AttributeValue(position, left);
+      case TokenType.T_Formula:
+        this.consume();
+        return new AttributeFormula(position, left);
+      default:
+        this.throwUnexpectedToken("Expected an attribute, got: ");
+    }
   };
 
   parseCellOrRangeOrAttribute = () => {
-    // cellOrRangeOrAttribute = cell, ([":", cell] | [".", identifier]);
+    // cellOrRangeOrAttribute = cell, ([":", cell] | [".", "value"] | [".", "formula"]);
     const cell = this.parseCell();
     if (cell === undefined) return undefined;
     if (this.currentToken?.type === TokenType.T_Colon) {
       this.consume();
       const nextCell = this.parseCell();
-      if (nextCell === undefined) {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected a cell, got: " + this.currentToken?.value
-        );
-      }
+      if (nextCell === undefined)
+        return this.throwUnexpectedToken("Expected a cell, got: ");
+
       return new CellRange(this.currentToken?.position, cell, nextCell);
     }
-    let attribute: TokenType.T_Value | TokenType.T_Formula | undefined;
-    if (this.currentToken?.type === TokenType.T_AccessOp) {
-      this.consume();
-      if ((this.currentToken?.type as string) === TokenType.T_Value) {
-        attribute = TokenType.T_Value;
-      } else if ((this.currentToken?.type as string) === TokenType.T_Formula) {
-        attribute = TokenType.T_Formula;
-      } else {
-        throw new ParserError(
-          ErrorType.E_SyntaxError,
-          this.currentToken?.position,
-          "Expected an attribute, got: " + this.currentToken?.value
-        );
-      }
-      this.consume();
-      return new CellAttribute(this.currentToken?.position, cell, attribute);
-    }
 
-    return cell;
+    const attribute = this.parseAttribute(cell);
+    if (attribute === undefined) return cell;
+    return attribute;
   };
 
-  parseFactor = (): Factor | undefined => {
+  parseFactor = () => {
     // factor =  [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
     const position = this.currentToken?.position;
     let negation: boolean = false;
@@ -775,15 +587,7 @@ export class Parser {
       this.consume();
     }
 
-    console.log("currentToken", this.currentToken?.type);
-    let factor:
-      | number
-      | string
-      | FunctionCall
-      | Expression
-      | Cell
-      | CellRange
-      | CellAttribute = this.parseInteger();
+    let factor: Expression | undefined = this.parseInteger();
     if (factor === undefined) {
       factor = this.parseFloat();
     }
@@ -791,7 +595,7 @@ export class Parser {
       factor = this.parseText();
     }
     if (factor === undefined) {
-      factor = this.parseFunctionCallOrID();
+      factor = this.functionCallOrIDAndOrAttribute();
     }
     if (factor === undefined) {
       factor = this.parseCellOrRangeOrAttribute();
@@ -800,13 +604,10 @@ export class Parser {
       if (this.currentToken?.type === TokenType.T_OpenBracket) {
         this.consume();
         factor = this.parseExpression();
-        if ((this.currentToken?.type as string) !== TokenType.T_CloseBracket) {
-          throw new ParserError(
-            ErrorType.E_SyntaxError,
-            this.currentToken?.position,
-            "Expected a closing bracket, got: " + this.currentToken?.value
-          );
-        }
+        this.ifNotOfTypeThrowUnexpectedToken(
+          TokenType.T_CloseBracket,
+          "Expected a closing bracket, got: "
+        );
         this.consume();
       }
     }
@@ -815,37 +616,40 @@ export class Parser {
     }
 
     if (negation) {
-      factor = -factor as number;
+      return new NegateExpression(position, factor);
     }
 
-    return new Factor(position, factor);
+    return factor;
   };
 
   parseText = () => {
     // text = "\"", {char}, "\"";
     if (this.currentToken?.type !== TokenType.T_String) return undefined;
+    const position = this.currentToken?.position;
     const text = this.currentToken.value;
     this.consume();
 
-    return text;
+    return new TextLiteral(position, text);
   };
 
   parseInteger = () => {
-    // integer = "0" | (nonZeroDigit, {digit});
+    // integer = "0" | (nonZeroDigit, {digit}); #NOSONAR
     if (this.currentToken?.type !== TokenType.T_Int) return undefined;
+    const position = this.currentToken?.position;
     const integer = this.currentToken.value;
     this.consume();
 
-    return integer;
+    return new IntegerLiteral(position, integer);
   };
 
   parseFloat = () => {
     // float = integer, ".", digit, {digit};
     if (this.currentToken?.type !== TokenType.T_Float) return undefined;
+    const position = this.currentToken?.position;
     const float = this.currentToken.value;
     this.consume();
 
-    return float;
+    return new FloatLiteral(position, float);
   };
 
   parseIdentifier = () => {
@@ -860,9 +664,10 @@ export class Parser {
   parseCell = () => {
     // cell = upperLetter, integer;
     if (this.currentToken?.type !== TokenType.T_Cell) return undefined;
-    const cell = this.currentToken.value;
+    const cell: string = this.currentToken.value;
+    const position = this.currentToken.position;
     this.consume();
 
-    return cell;
+    return new Cell(position, cell[0], Number(cell.slice(1)));
   };
 }

@@ -14,6 +14,7 @@ const tokenTests: [string, Token][] = [
   ["A10", new Token("A10", TokenType.T_Cell, {row: 0, column: 0})],
   ["", new Token("EOF", TokenType.T_EOF, {row: 0, column: 0})],
   ["123", new Token(123, TokenType.T_Int, {row: 0, column: 0})],
+  ["0", new Token(0, TokenType.T_Int, {row: 0, column: 0})],
   ["9.99", new Token(9.99, TokenType.T_Float, {row: 0, column: 0})],
   ["'test_string'", new Token("test_string", TokenType.T_String, {row: 0, column: 0})],
   ['"test_string"', new Token("test_string", TokenType.T_String, {row: 0, column: 0})],

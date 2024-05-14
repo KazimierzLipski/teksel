@@ -169,6 +169,7 @@ def mid(cell, indexFrom, chars)
     newCell = ""
     count = 0
     tempNewLetter = ""
+    100.2 + if (count>=indexFrom) {letter} else {""}
     foreach letter in cell
     {
       count += 1
@@ -193,23 +194,25 @@ program = { functionDefinition };
 parameterList = [identifier, {",", identifier}];
 functionDefinition = "def", identifier, "(", parameterList, ")", block;
 argumentList = [expression, {",", expression}];
-functionCallOrID = identifier, ["(", argumentList, ")"];
+functionCallOrIDAndOrAttribute = identifier, [("(", argumentList, ")")], [attribute];
+attribute = ([".", "value"] | [".", "formula"])
 block = "{", {anyStatement}, "}";
-anyStatement = assignment | conditionalStatement | identifier | returnStatement | factor;
+anyStatement = assignment | conditionalStatement | returnStatement;
 returnStatement = "return", [expression];
 conditionalStatement = ifStatement | forEachStatement;
+useIf = "use", expression, "if", expression, "else", expression;
 ifStatement = "if", expression, block, ["else", block];
 forEachStatement = "foreach", identifier, "in", expression, block;
-assignment = (identifier | cellOrRangeOrAttribute), ("=" | "+=" | "-="), expression;
+assignment = (functionCallOrIDAndOrAttribute | cellOrRangeOrAttribute), ("=" | "+=" | "-="), expression;
 expression = orExpression;
 orExpression = andExpression, {"or", andExpression};
 andExpression = relativeExpression, {"and", relativeExpression};
 relativeExpression = additiveExpression, [(">" | "<" | ">=" | "<=" | "==" | "!="), additiveExpression];
 additiveExpression = multiplicativeExpression, {("+" | "-"), multiplicativeExpression};
 multiplicativeExpression = factor, {("*" | "/"), factor};
-cellOrRangeOrAttribute = cell, ([":", cell] | [".", "value"] | [".", "formula"]);
-factor = [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
-negation = "!";
+cellOrRangeOrAttribute = cell, ([":", cell] | [attribute]);
+factor = [negation], (integer | float | text | functionCallOrIDAndOrAttribute | "(", expression, ")" | cellOrRangeOrAttribute | useIf);
+negation = "-";
 text = "\"", {char}, "\"";
 identifier = letter, {char | "_"};
 cell = upperLetter, nonZeroDigit, [digit];

@@ -11,6 +11,7 @@ export enum TokenType {
   T_Def = "def",
   T_Value = "value",
   T_Formula = "formula",
+  T_Use = "use",
   T_AndOp = "and",
   T_OrOp = "or",
 
@@ -47,6 +48,7 @@ export enum TokenType {
   T_OpenCurly = "{",
 
   T_EOF = "EOF",
+  T_Unknown = "unknown",
 }
 
 export type SetterType =

@@ -1,5 +1,4 @@
 import { Position } from "./token";
-import { CellAttributeType, SetterType } from "./token-types";
 
 interface IVisitable {
   accept(visitor: IVisitor): void;
@@ -13,16 +12,13 @@ interface IVisitor {
   visitBlock(element: Block): void;
   visitReturnStatement(element: ReturnStatement): void;
   visitIfStatement(element: IfStatement): void;
+  visitUseStatement(element: UseStatement): void;
   visitForEachStatement(element: ForEachStatement): void;
-  visitAssignmentID(element: AssignmentID): void;
-  visitAssignmentIDPlusEquals(element: AssignmentPlusEqualsID): void;
-  visitAssignmentIDMinusEquals(element: AssignmentMinusEqualsID): void;
-  visitAssignmentCell(element: AssignmentCell): void;
-  visitAssignmentPlusEqualsCell(element: AssignmentPlusEqualsCell): void;
-  visitAssignmentMinusEqualsCell(element: AssignmentMinusEqualsCell): void;
+  visitAssignment(element: Assignment): void;
+  visitAssignmentPlusEquals(element: AssignmentPlusEquals): void;
+  visitAssignmentMinusEquals(element: AssignmentMinusEquals): void;
   visitOrExpression(element: OrExpression): void;
   visitAndExpression(element: AndExpression): void;
-  visitRelativeExpression(element: RelativeExpression): void;
   visitLessThanExpression(element: LessThanExpression): void;
   visitLessThanOrEqualExpression(element: LessThanOrEqualExpression): void;
   visitEqualExpression(element: EqualExpression): void;
@@ -31,139 +27,192 @@ interface IVisitor {
     element: GreaterThanOrEqualExpression
   ): void;
   visitGreaterThanExpression(element: GreaterThanExpression): void;
-  visitAdditiveExpression(element: AdditiveExpression): void;
   visitAddExpression(element: AddExpression): void;
   visitSubtractExpression(element: SubtractExpression): void;
-  visitMultiplicativeExpression(element: MultiplicativeExpression): void;
   visitMultiplyExpression(element: MultiplyExpression): void;
   visitDivideExpression(element: DivideExpression): void;
-  visitFactor(element: Factor): void;
-  visitNegatedFactor(element: NegatedFactor): void;
-  visitCellAttribute(element: CellAttribute): void;
+  visitNegateExpression(element: NegateExpression): void;
+  visitFormulaAttribute(element: AttributeFormula): void;
+  visitValueAttribute(element: AttributeValue): void;
   visitCellRange(element: CellRange): void;
-  visitExpression(element: Expression): void;
   visitCell(element: Cell): void;
+  visitIdentifier(element: Identifier): void;
+  visitText(element: TextLiteral): void;
+  visitFloat(element: FloatLiteral): void;
+  visitInteger(element: IntegerLiteral): void;
 }
 
-class ConcreteVisitor1 implements IVisitor {
+class ProgramPrinter implements IVisitor {
+  private printBinaryExpression(element: BinaryExpression, operation: string) {
+    console.log(operation, ": ");
+    console.log("Left:");
+    element.leftExpression.accept(this);
+    console.log("Right:");
+    element.rightExpression.accept(this);
+  }
+  private printAssignment(element: Assignment, operation: string) {
+    console.log(`${operation}:`);
+    console.log("Left, the expression to be assigned to:");
+    element.expression.accept(this);
+    console.log("Right, the assigned expression:");
+    element.assigned.accept(this);
+  }
   public visitProgram(element: Program): void {
-    console.log(`${element.definitions} + ConcreteVisitor1`);
+    console.log("Program: ");
+    element.definitions.forEach((definition) => {
+      definition.accept(this);
+    });
   }
   public visitFunctionDefinition(element: FunctionDefinition): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
+    console.log("FunctionDefinition: ");
+    console.log(`Identifier: ${element.identifier}`);
+    console.log(`Parameters: ${element.parametersList}`);
+    console.log("Block: ");
+    element.block.accept(this);
   }
   public visitArgumentList(element: ArgumentList): void {
-    console.log(`${element.arguments} + ConcreteVisitor1`);
+    console.log("ArgumentList:");
+    element.arguments.forEach((argument) => {
+      console.log("Argument: ");
+      argument.accept(this);
+    });
   }
   public visitFunctionCall(element: FunctionCall): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
+    console.log(`FunctionCall:`);
+    console.log(`Identifier: ${element.identifier}`);
+    element.argumentList?.accept(this);
   }
   public visitBlock(element: Block): void {
-    console.log(`${element.anyStatements} + ConcreteVisitor1`);
+    console.log("Block:");
+    element.anyStatements.forEach((statement) => {
+      console.log("Statement: ");
+      if (typeof statement === "string") console.log(statement);
+      else statement.accept(this);
+    });
   }
   public visitReturnStatement(element: ReturnStatement): void {
-    console.log(`${element.referent} + ConcreteVisitor1`);
+    console.log("ReturnStatement: ");
+    console.log("Expression: ");
+    element.referent?.accept(this);
   }
   public visitIfStatement(element: IfStatement): void {
-    console.log(`${element.expression} + ConcreteVisitor1`);
+    console.log("IfStatement: ");
+    console.log("Expression: ");
+    element.expression.accept(this);
+    console.log("Block: ");
+    element.block.accept(this);
+    console.log("ElseBlock: ");
+    element.elseBlock?.accept(this);
+  }
+  public visitUseStatement(element: UseStatement): void {
+    console.log("UseStatement: ");
+    console.log("CheckExpression: ");
+    element.checkExpression.accept(this);
+    console.log("TrueExpression: ");
+    element.trueExpression.accept(this);
+    console.log("FalseExpression: ");
+    element.falseExpression.accept(this);
   }
   public visitForEachStatement(element: ForEachStatement): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
+    console.log("ForEachStatement: ");
+    console.log(`Identifier: ${element.identifier}`);
+    console.log("Expression: ");
+    element.expression.accept(this);
+    console.log("Block: ");
+    element.block.accept(this);
   }
-  public visitAssignmentID(element: AssignmentID): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
+  public visitAssignment(element: Assignment): void {
+    this.printAssignment(element, "Assignment");
   }
-  public visitAssignmentIDPlusEquals(element: AssignmentPlusEqualsID): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
+  public visitAssignmentPlusEquals(element: AssignmentPlusEquals): void {
+    this.printAssignment(element, "AssignmentPlusEquals");
   }
-  public visitAssignmentIDMinusEquals(element: AssignmentMinusEqualsID): void {
-    console.log(`${element.identifier} + ConcreteVisitor1`);
-  }
-  public visitAssignmentCell(element: AssignmentCell): void {
-    console.log(`${element.cell} + ConcreteVisitor1`);
-  }
-  public visitAssignmentPlusEqualsCell(
-    element: AssignmentPlusEqualsCell
-  ): void {
-    console.log(`${element.cell} + ConcreteVisitor1`);
-  }
-  public visitAssignmentMinusEqualsCell(
-    element: AssignmentMinusEqualsCell
-  ): void {
-    console.log(`${element.cell} + ConcreteVisitor1`);
+  public visitAssignmentMinusEquals(element: AssignmentMinusEquals): void {
+    this.printAssignment(element, "AssignmentMinusEquals");
   }
   public visitOrExpression(element: OrExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "OrExpression");
   }
   public visitAndExpression(element: AndExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
-  }
-  public visitRelativeExpression(element: RelativeExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "AndExpression");
   }
   public visitLessThanExpression(element: LessThanExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "LessThanExpression");
   }
   public visitLessThanOrEqualExpression(
     element: LessThanOrEqualExpression
   ): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "LessThanOrEqualExpression");
   }
   public visitEqualExpression(element: EqualExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "EqualExpression");
   }
   public visitNotEqualExpression(element: NotEqualExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "NotEqualExpression");
   }
   public visitGreaterThanOrEqualExpression(
     element: GreaterThanOrEqualExpression
   ): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "GreaterThanOrEqualExpression");
   }
   public visitGreaterThanExpression(element: GreaterThanExpression): void {
-    console.log(`${element.leftExpression} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "GreaterThanExpression");
   }
-  public visitAdditiveExpression(element: AdditiveExpression): void {
-    console.log(`${element.leftTerm} + ConcreteVisitor1`);
-  }
+
   public visitAddExpression(element: AddExpression): void {
-    console.log(`${element.leftTerm} + ConcreteVisitor1`);
+    console.log(`This is an AddExpression`);
+    this.printBinaryExpression(element, "AddExpression");
   }
   public visitSubtractExpression(element: SubtractExpression): void {
-    console.log(`${element.leftTerm} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "SubtractExpression");
   }
-  public visitMultiplicativeExpression(
-    element: MultiplicativeExpression
-  ): void {
-    console.log(`${element.leftFactor} + ConcreteVisitor1`);
-  }
+
   public visitMultiplyExpression(element: MultiplyExpression): void {
-    console.log(`${element.leftFactor} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "MultiplyExpression");
   }
   public visitDivideExpression(element: DivideExpression): void {
-    console.log(`${element.leftFactor} + ConcreteVisitor1`);
+    this.printBinaryExpression(element, "DivideExpression");
   }
-  public visitFactor(element: Factor): void {
-    console.log(`${element.value} + ConcreteVisitor1`);
+  public visitNegateExpression(element: NegateExpression): void {
+    console.log(`NegateExpression: `);
+    element.expression.accept(this);
   }
-  public visitNegatedFactor(element: NegatedFactor): void {
-    console.log(`${element.value} + ConcreteVisitor1`);
+  public visitFormulaAttribute(element: AttributeFormula): void {
+    console.log(`AttributeFormula: `);
+    console.log(element.expression.accept(this));
   }
-  public visitCellAttribute(element: CellAttribute): void {
-    console.log(`${element.cell} + ConcreteVisitor1`);
+  public visitValueAttribute(element: AttributeValue): void {
+    console.log(`AttributeValue: `);
+    element.expression.accept(this);
   }
   public visitCellRange(element: CellRange): void {
-    console.log(`${element.start} + ConcreteVisitor1`);
-  }
-  public visitExpression(element: Expression): void {
-    console.log(`${element.expression} + ConcreteVisitor1`);
+    console.log(`Range:`);
+    console.log(`Start:`);
+    element.start.accept(this);
+    console.log(`End:`);
+    element.end.accept(this);
   }
   public visitCell(element: Cell): void {
-    console.log(`${element.row} + ConcreteVisitor1`);
+    console.log(`Cell: `);
+    console.log(`Row: ${element.row}`);
+    console.log(`Column: ${element.column}`);
+  }
+  public visitIdentifier(element: Identifier): void {
+    console.log(`Identifier: `);
+    console.log(`${element.name}`);
+  }
+  public visitInteger(element: IntegerLiteral): void {
+    console.log(`Int, val: ${element.value}`);
+  }
+  public visitText(element: TextLiteral): void {
+    console.log(`Text, val: ${element.value}`);
+  }
+  public visitFloat(element: FloatLiteral): void {
+    console.log(`Float, val: ${element.value}`);
   }
 }
 
-const visitor1 = new ConcreteVisitor1();
+const visitor1 = new ProgramPrinter();
 
 export class ASTNode {
   position: Position | undefined;
@@ -233,24 +282,20 @@ export class FunctionCall extends ASTNode implements IVisitable {
 
 export class Block extends ASTNode implements IVisitable {
   anyStatements: (
-    | AssignmentCell
-    | AssignmentID
+    | Assignment
     | IfStatement
     | ForEachStatement
     | string
     | ReturnStatement
-    | Factor
   )[];
   constructor(
     position: Position | undefined,
     anyStatements: (
-      | AssignmentCell
-      | AssignmentID
+      | Assignment
       | IfStatement
       | ForEachStatement
       | string
       | ReturnStatement
-      | Factor
     )[]
   ) {
     super(position);
@@ -295,6 +340,26 @@ export class IfStatement extends ASTNode implements IVisitable {
   }
 }
 
+export class UseStatement extends ASTNode implements IVisitable {
+  checkExpression: Expression;
+  trueExpression: Expression;
+  falseExpression: Expression;
+  constructor(
+    position: Position | undefined,
+    checkExpression: Expression,
+    trueExpression: Expression,
+    falseExpression: Expression
+  ) {
+    super(position);
+    this.checkExpression = checkExpression;
+    this.trueExpression = trueExpression;
+    this.falseExpression = falseExpression;
+  }
+  accept(visitor: IVisitor): void {
+    visitor.visitUseStatement(this);
+  }
+}
+
 export class ForEachStatement extends ASTNode implements IVisitable {
   identifier: string;
   expression: Expression;
@@ -315,186 +380,92 @@ export class ForEachStatement extends ASTNode implements IVisitable {
   }
 }
 
-export class AssignmentID extends ASTNode implements IVisitable {
-  identifier: string;
-  expression: Expression | IfStatement;
+export class Assignment extends ASTNode implements IVisitable {
+  expression: Expression;
+  assigned: Expression | UseStatement;
   constructor(
     position: Position | undefined,
-    identifier: string,
-    expression: Expression | IfStatement
+    expression: Expression,
+    assigned: Expression | UseStatement
   ) {
     super(position);
-    this.identifier = identifier;
+    this.assigned = assigned;
     this.expression = expression;
   }
   accept(visitor: IVisitor): void {
-    visitor.visitAssignmentID(this);
-  }
-}
-export class AssignmentPlusEqualsID extends AssignmentID implements IVisitable {
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentIDPlusEquals(this);
-  }
-}
-export class AssignmentMinusEqualsID
-  extends AssignmentID
-  implements IVisitable
-{
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentIDMinusEquals(this);
+    visitor.visitAssignment(this);
   }
 }
 
-export class AssignmentCell extends ASTNode implements IVisitable {
-  cell: Cell | CellRange | CellAttribute;
-  expression: Expression | IfStatement;
+export class AssignmentPlusEquals extends Assignment implements IVisitable {
+  accept(visitor: IVisitor): void {
+    visitor.visitAssignmentPlusEquals(this);
+  }
+}
+export class AssignmentMinusEquals extends Assignment implements IVisitable {
+  accept(visitor: IVisitor): void {
+    visitor.visitAssignmentMinusEquals(this);
+  }
+}
+
+export interface Expression extends IVisitable {
+  accept(visitor: IVisitor): void;
+}
+
+export class BinaryExpression extends ASTNode implements Expression {
+  leftExpression: Expression;
+  rightExpression: Expression;
   constructor(
     position: Position | undefined,
-    cell: Cell | CellRange | CellAttribute,
-    expression: Expression | IfStatement
-  ) {
-    super(position);
-    this.cell = cell;
-    this.expression = expression;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentCell(this);
-  }
-}
-export class AssignmentPlusEqualsCell
-  extends AssignmentCell
-  implements IVisitable
-{
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentPlusEqualsCell(this);
-  }
-}
-export class AssignmentMinusEqualsCell
-  extends AssignmentCell
-  implements IVisitable
-{
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentMinusEqualsCell(this);
-  }
-}
-
-export class Expression extends ASTNode implements IVisitable {
-  expression: OrExpressionType | undefined;
-  constructor(
-    position: Position | undefined,
-    expression: OrExpressionType | undefined
-  ) {
-    super(position);
-    this.expression = expression;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitExpression(this);
-  }
-}
-
-export type ExpressionType =
-  | OrExpression
-  | AndExpression
-  | RelativeExpression
-  | AdditiveExpression
-  | MultiplicativeExpression
-  | Factor
-  | undefined;
-
-export type OrExpressionType = OrExpression | AndExpressionType;
-
-export class OrExpression extends ASTNode implements IVisitable {
-  leftExpression: OrExpressionType;
-  rightExpression: OrExpressionType | undefined;
-  constructor(
-    position: Position | undefined,
-    leftExpression: OrExpressionType,
-    rightExpression: OrExpressionType | undefined = undefined
+    leftExpression: Expression,
+    rightExpression: Expression
   ) {
     super(position);
     this.leftExpression = leftExpression;
     this.rightExpression = rightExpression;
   }
+  accept(visitor: IVisitor): void {
+    throw new Error("Method not implemented.");
+  }
+}
 
+export class OrExpression extends BinaryExpression {
   accept(visitor: IVisitor): void {
     visitor.visitOrExpression(this);
   }
 }
 
-export type AndExpressionType = AndExpression | RelativeExpressionType;
-
-export class AndExpression extends ASTNode implements IVisitable {
-  leftExpression: AndExpressionType;
-  rightExpression: AndExpressionType | undefined;
-  constructor(
-    position: Position | undefined,
-    leftExpression: AndExpressionType,
-    rightExpression: AndExpressionType | undefined = undefined
-  ) {
-    super(position);
-    this.leftExpression = leftExpression;
-    this.rightExpression = rightExpression;
-  }
+export class AndExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitAndExpression(this);
   }
 }
 
-type RelativeExpressionType =
-  | AndExpression
-  | MultiplicativeExpression
-  | Factor
-  | AdditiveExpression
-  | RelativeExpression;
-
-export class RelativeExpression extends ASTNode implements IVisitable {
-  position: Position | undefined;
-  leftExpression: RelativeExpressionType;
-  rightExpression: RelativeExpressionType | undefined;
-  constructor(
-    position: Position | undefined,
-    leftExpression: RelativeExpressionType,
-    rightExpression: RelativeExpressionType | undefined = undefined
-  ) {
-    super(position);
-    this.leftExpression = leftExpression;
-    this.rightExpression = rightExpression;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitRelativeExpression(this);
-  }
-}
-export class LessThanExpression
-  extends RelativeExpression
-  implements IVisitable
-{
+export class LessThanExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitLessThanExpression(this);
   }
 }
 export class LessThanOrEqualExpression
-  extends RelativeExpression
+  extends BinaryExpression
   implements IVisitable
 {
   accept(visitor: IVisitor): void {
     visitor.visitLessThanOrEqualExpression(this);
   }
 }
-export class EqualExpression extends RelativeExpression implements IVisitable {
+export class EqualExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitEqualExpression(this);
   }
 }
-export class NotEqualExpression
-  extends RelativeExpression
-  implements IVisitable
-{
+export class NotEqualExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitNotEqualExpression(this);
   }
 }
 export class GreaterThanOrEqualExpression
-  extends RelativeExpression
+  extends BinaryExpression
   implements IVisitable
 {
   accept(visitor: IVisitor): void {
@@ -502,7 +473,7 @@ export class GreaterThanOrEqualExpression
   }
 }
 export class GreaterThanExpression
-  extends RelativeExpression
+  extends BinaryExpression
   implements IVisitable
 {
   accept(visitor: IVisitor): void {
@@ -510,119 +481,61 @@ export class GreaterThanExpression
   }
 }
 
-export class AdditiveExpression extends ASTNode implements IVisitable {
-  position: Position | undefined;
-  leftTerm: MultiplicativeExpression | AdditiveExpression | Factor;
-  rightTerm: MultiplicativeExpression | AdditiveExpression | Factor | undefined;
-  constructor(
-    position: Position | undefined,
-    leftTerm: MultiplicativeExpression | AdditiveExpression | Factor,
-    rightTerm:
-      | MultiplicativeExpression
-      | AdditiveExpression
-      | Factor
-      | undefined = undefined
-  ) {
-    super(position);
-    this.leftTerm = leftTerm;
-    this.rightTerm = rightTerm;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitAdditiveExpression(this);
-  }
-}
-export class AddExpression extends AdditiveExpression implements IVisitable {
+export class AddExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitAddExpression(this);
   }
 }
-export class SubtractExpression
-  extends AdditiveExpression
-  implements IVisitable
-{
+export class SubtractExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitSubtractExpression(this);
   }
 }
 
-export class MultiplicativeExpression extends ASTNode implements IVisitable {
-  leftFactor: Factor | MultiplicativeExpression;
-  rightFactor: Factor | undefined;
-  constructor(
-    position: Position | undefined,
-    leftFactor: Factor | MultiplicativeExpression,
-    rightFactor: Factor | undefined = undefined
-  ) {
-    super(position);
-    this.leftFactor = leftFactor;
-    this.rightFactor = rightFactor;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitMultiplicativeExpression(this);
-  }
-}
-export class MultiplyExpression
-  extends MultiplicativeExpression
-  implements IVisitable
-{
+export class MultiplyExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitMultiplyExpression(this);
   }
 }
-export class DivideExpression
-  extends MultiplicativeExpression
-  implements IVisitable
-{
+export class DivideExpression extends BinaryExpression implements IVisitable {
   accept(visitor: IVisitor): void {
     visitor.visitDivideExpression(this);
   }
 }
 
-type FactorValuesType =
-  | number
-  | string
-  | FunctionCall
-  | string
-  | CellRange
-  | CellAttribute
-  | Expression
-  | Cell;
-
-export class Factor extends ASTNode implements IVisitable {
-  value: FactorValuesType;
-  constructor(position: Position | undefined, value: FactorValuesType) {
+export class NegateExpression extends ASTNode implements IVisitable {
+  expression: Expression;
+  constructor(position: Position | undefined, expression: Expression) {
     super(position);
-    this.value = value;
+    this.expression = expression;
   }
   accept(visitor: IVisitor): void {
-    visitor.visitFactor(this);
-  }
-}
-export class NegatedFactor extends ASTNode implements IVisitable {
-  value: FactorValuesType;
-  constructor(position: Position | undefined, value: FactorValuesType) {
-    super(position);
-    this.value = value;
-  }
-  accept(visitor: IVisitor): void {
-    visitor.visitNegatedFactor(this);
+    visitor.visitNegateExpression(this);
   }
 }
 
-export class CellAttribute extends ASTNode implements IVisitable {
-  cell: Cell;
-  idAttribute: CellAttributeType;
-  constructor(
-    position: Position | undefined,
-    cell: Cell,
-    idAttribute: CellAttributeType
-  ) {
+// A10.value A15.formula b.value
+
+export class Attribute extends ASTNode implements IVisitable {
+  expression: Expression;
+  constructor(position: Position | undefined, expression: Expression) {
     super(position);
-    this.cell = cell;
-    this.idAttribute = idAttribute;
+    this.expression = expression;
   }
   accept(visitor: IVisitor): void {
-    visitor.visitCellAttribute(this);
+    throw new Error("Method not implemented.");
+  }
+}
+
+export class AttributeFormula extends Attribute {
+  accept(visitor: IVisitor): void {
+    visitor.visitFormulaAttribute(this);
+  }
+}
+
+export class AttributeValue extends Attribute {
+  accept(visitor: IVisitor): void {
+    visitor.visitFormulaAttribute(this);
   }
 }
 
@@ -642,12 +555,56 @@ export class CellRange extends ASTNode implements IVisitable {
 export class Cell extends ASTNode implements IVisitable {
   row: number;
   column: string;
-  constructor(position: Position | undefined, row: number, column: string) {
+  constructor(position: Position | undefined, column: string, row: number) {
     super(position);
     this.row = row;
     this.column = column;
   }
   accept(visitor: IVisitor): void {
     visitor.visitCell(this);
+  }
+}
+
+export class Identifier extends ASTNode implements IVisitable {
+  name: string;
+  constructor(position: Position | undefined, name: string) {
+    super(position);
+    this.name = name;
+  }
+  accept(visitor: IVisitor): void {
+    visitor.visitIdentifier(this);
+  }
+}
+
+export class IntegerLiteral extends ASTNode implements IVisitable {
+  value: number;
+  constructor(position: Position | undefined, value: number) {
+    super(position);
+    this.value = value;
+  }
+  accept(visitor: IVisitor): void {
+    visitor.visitInteger(this);
+  }
+}
+
+export class TextLiteral extends ASTNode implements IVisitable {
+  value: string;
+  constructor(position: Position | undefined, value: string) {
+    super(position);
+    this.value = value;
+  }
+  accept(visitor: IVisitor): void {
+    visitor.visitText(this);
+  }
+}
+
+export class FloatLiteral extends ASTNode implements IVisitable {
+  value: number;
+  constructor(position: Position | undefined, value: number) {
+    super(position);
+    this.value = value;
+  }
+  accept(visitor: IVisitor): void {
+    visitor.visitInteger(this);
   }
 }

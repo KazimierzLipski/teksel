@@ -36,14 +36,16 @@ export class Lexer {
   buildToken() {
     while (this.skipWhitespace() || this.skipComments()) {}
     this.tokenPosition = this.cr.getPosition();
-    return (
+    let token =
       this.buildEOF() ||
       this.buildMulticharOperator() ||
-      this.buildSinglecharOperator() ||
-      this.buildIdentifierOrKeywordOrCell() ||
-      this.buildString() ||
-      this.buildNumber()
-    );
+      this.buildSinglecharOperator();
+    if (token === undefined) token = this.buildIdentifierOrKeywordOrCell();
+    if (token === undefined) token = this.buildString();
+    if (token === undefined) token = this.buildNumber();
+    if (token === undefined)
+      token = new Token("unknown", TokenType.T_Unknown, this.tokenPosition);
+    return token;
   }
 
   skipWhitespace() {
@@ -66,7 +68,7 @@ export class Lexer {
     if (this.currentChar === undefined) {
       return new Token("EOF", TokenType.T_EOF, this.tokenPosition);
     }
-    return false;
+    return undefined;
   }
 
   buildMulticharOperator() {
@@ -217,7 +219,7 @@ export class Lexer {
     let length = 1;
     let number = Number(this.currentChar);
     this.nextChar();
-    if (number === 0 && this.currentChar!.match(/^\d+$/i)) {
+    if (number === 0 && this.currentChar?.match(/^\d+$/i)) {
       throw new LexerError(
         ErrorType.E_SyntaxError,
         this.cr.getPosition(),
