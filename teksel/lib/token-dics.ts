@@ -59,6 +59,11 @@ type Fucuntion = (
   right: Expression
 ) => Assignment;
 
+const assignmentConstructo = {
+  "*": TokenType.T_MulOp,
+  "/": TokenType.T_DivOp,
+}
+
 export const assignmentConstructors = new Map<TokenType, Fucuntion>([
   [
     TokenType.T_AssignOp,
