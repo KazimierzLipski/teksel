@@ -1,46 +1,153 @@
-import { TokenType } from "./token-types"
+import {
+  Assignment,
+  AssignmentMinusEquals,
+  AssignmentPlusEquals,
+  EqualExpression,
+  Expression,
+  GreaterThanExpression,
+  GreaterThanOrEqualExpression,
+  LessThanExpression,
+  LessThanOrEqualExpression,
+  NotEqualExpression,
+} from "./statements";
+import { Position } from "./token";
+import { TokenType } from "./token-types";
 
 export const singleCharTokens = {
-    "*": TokenType.T_MulOp,
-    "/": TokenType.T_DivOp,
-    "-": TokenType.T_MinOp,
-    "+": TokenType.T_AddOp,
-    ",": TokenType.T_Coma,
-    ":": TokenType.T_Colon,
-    ";": TokenType.T_Semicolon,
-    ")": TokenType.T_CloseBracket,
-    "(": TokenType.T_OpenBracket,
-    "}": TokenType.T_CloseCurly,
-    "{": TokenType.T_OpenCurly,
-    "&": TokenType.T_AndOp,
-    "|": TokenType.T_OrOp,
-    ".": TokenType.T_AccessOp,
-}
-
+  "*": TokenType.T_MulOp,
+  "/": TokenType.T_DivOp,
+  "-": TokenType.T_MinOp,
+  "+": TokenType.T_AddOp,
+  ",": TokenType.T_Coma,
+  ":": TokenType.T_Colon,
+  ";": TokenType.T_Semicolon,
+  ")": TokenType.T_CloseBracket,
+  "(": TokenType.T_OpenBracket,
+  "}": TokenType.T_CloseCurly,
+  "{": TokenType.T_OpenCurly,
+  ".": TokenType.T_AccessOp,
+};
 
 export const multiCharTokens = {
-    "<=": TokenType.T_LesEqOp,
-    ">=": TokenType.T_GreEqOp,
-    "==": TokenType.T_EqOp,
-    "!=": TokenType.T_NotEqOp,
-    "<": TokenType.T_LesOp,
-    ">": TokenType.T_GreOp,
-    "=": TokenType.T_AssignOp,
-    "!": TokenType.T_Neg,
+  "<=": TokenType.T_LesEqOp,
+  ">=": TokenType.T_GreEqOp,
+  "==": TokenType.T_EqOp,
+  "!=": TokenType.T_NotEqOp,
+  "+=": TokenType.T_PlusEqOp,
+  "-=": TokenType.T_MinEqOp,
+  "<": TokenType.T_LesOp,
+  ">": TokenType.T_GreOp,
+  "=": TokenType.T_AssignOp,
+  "!": TokenType.T_Neg,
+  "-": TokenType.T_MinOp,
+  "+": TokenType.T_AddOp,
+};
+
+export const additiveCharTokens = {
+  "+": TokenType.T_AddOp,
+  "-": TokenType.T_MinOp,
+};
+
+export const multiplicativeCharTokens = {
+  "*": TokenType.T_MulOp,
+  "/": TokenType.T_DivOp,
+};
+
+type Fucuntion = (
+  position: Position,
+  left: Expression,
+  right: Expression
+) => Assignment;
+
+const assignmentConstructo = {
+  "*": TokenType.T_MulOp,
+  "/": TokenType.T_DivOp,
 }
+
+export const assignmentConstructors = new Map<TokenType, Fucuntion>([
+  [
+    TokenType.T_AssignOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new Assignment(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_PlusEqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new AssignmentPlusEquals(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_MinEqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new AssignmentMinusEquals(position, left, right);
+    },
+  ],
+]);
+
+type BinaryConstructorType = (
+  position: Position,
+  leftExpression: Expression,
+  rightExpression: Expression
+) => Expression;
+
+export const relativeConstructors = new Map<TokenType, BinaryConstructorType>([
+  [
+    TokenType.T_LesOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new LessThanExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_LesEqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new LessThanOrEqualExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_EqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new EqualExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_NotEqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new NotEqualExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_GreOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new GreaterThanExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_GreEqOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new GreaterThanOrEqualExpression(position, left, right);
+    },
+  ],
+]);
 
 export const firstMultiCharToken = {
-    "<": TokenType.T_LesOp,
-    ">": TokenType.T_GreOp,
-    "=": TokenType.T_AssignOp,
-    "!": TokenType.T_Neg,
-}
+  "<": TokenType.T_LesOp,
+  ">": TokenType.T_GreOp,
+  "=": TokenType.T_AssignOp,
+  "!": TokenType.T_Neg,
+};
 
 export const keywords = {
-    "if": TokenType.T_If,
-    "else": TokenType.T_Else,
-    "return": TokenType.T_Return,
+  if: TokenType.T_If,
+  else: TokenType.T_Else,
+  return: TokenType.T_Return,
+  value: TokenType.T_Value,
+  formula: TokenType.T_Formula,
+  use: TokenType.T_Use,
+  and: TokenType.T_AndOp,
+  or: TokenType.T_OrOp,
 
-    "foreach": TokenType.T_Foreach,
-    "in": TokenType.T_In,
-}
+  foreach: TokenType.T_Foreach,
+  in: TokenType.T_In,
+  def: TokenType.T_Def,
+};

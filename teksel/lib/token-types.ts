@@ -1,5 +1,6 @@
 export enum TokenType {
   T_Identifier = "id",
+  T_Cell = "cell",
 
   // keywords
   T_If = "if",
@@ -7,22 +8,26 @@ export enum TokenType {
   T_Foreach = "foreach",
   T_Return = "return",
   T_In = "in",
+  T_Def = "def",
+  T_Value = "value",
+  T_Formula = "formula",
+  T_Use = "use",
+  T_AndOp = "and",
+  T_OrOp = "or",
 
   T_Int = "int",
   T_Float = "float",
-  T_String = 'string',
+  T_String = "string",
 
   // single sign operators
   T_MulOp = "*",
   T_DivOp = "/",
   T_AddOp = "+",
   T_MinOp = "-",
+  T_Neg = "!",
   T_AssignOp = "=",
   T_LesOp = "<",
   T_GreOp = ">",
-  T_AndOp = "&",
-  T_OrOp = "|",
-  T_Neg = "!",
   T_AccessOp = ".",
 
   // multi signs operators
@@ -30,6 +35,8 @@ export enum TokenType {
   T_GreEqOp = ">=",
   T_EqOp = "==",
   T_NotEqOp = "!=",
+  T_PlusEqOp = "+=",
+  T_MinEqOp = "-=",
 
   // punctation
   T_Coma = ",",
@@ -41,4 +48,20 @@ export enum TokenType {
   T_OpenCurly = "{",
 
   T_EOF = "EOF",
+  T_Unknown = "unknown",
 }
+
+export type SetterType =
+  | TokenType.T_AssignOp
+  | TokenType.T_PlusEqOp
+  | TokenType.T_MinEqOp;
+
+export type ComparisonType =
+  | TokenType.T_LesEqOp
+  | TokenType.T_GreEqOp
+  | TokenType.T_EqOp
+  | TokenType.T_NotEqOp
+  | TokenType.T_LesOp
+  | TokenType.T_GreOp;
+
+export type CellAttributeType = TokenType.T_Value | TokenType.T_Formula;

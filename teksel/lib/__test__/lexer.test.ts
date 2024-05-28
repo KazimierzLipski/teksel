@@ -7,11 +7,14 @@ const tokenTests: [string, Token][] = [
   ["if", new Token("if", TokenType.T_If, {row: 0, column: 0})],
   ["else", new Token("else", TokenType.T_Else, {row: 0, column: 0})],
   ["return", new Token("return", TokenType.T_Return, {row: 0, column: 0})],
-  ["&", new Token("&", TokenType.T_AndOp, {row: 0, column: 0})],
-  ["|", new Token("|", TokenType.T_OrOp, {row: 0, column: 0})],
+  ["and", new Token("and", TokenType.T_AndOp, {row: 0, column: 0})],
+  ["or", new Token("or", TokenType.T_OrOp, {row: 0, column: 0})],
   ["id", new Token("id", TokenType.T_Identifier, {row: 0, column: 0})],
+  ["x", new Token("x", TokenType.T_Identifier, {row: 0, column: 0})],
+  ["A10", new Token("A10", TokenType.T_Cell, {row: 0, column: 0})],
   ["", new Token("EOF", TokenType.T_EOF, {row: 0, column: 0})],
   ["123", new Token(123, TokenType.T_Int, {row: 0, column: 0})],
+  ["0", new Token(0, TokenType.T_Int, {row: 0, column: 0})],
   ["9.99", new Token(9.99, TokenType.T_Float, {row: 0, column: 0})],
   ["'test_string'", new Token("test_string", TokenType.T_String, {row: 0, column: 0})],
   ['"test_string"', new Token("test_string", TokenType.T_String, {row: 0, column: 0})],
@@ -26,12 +29,12 @@ const tokenTests: [string, Token][] = [
   ["(", new Token("(", TokenType.T_OpenBracket, {row: 0, column: 0})],
   ["}", new Token("}", TokenType.T_CloseCurly, {row: 0, column: 0})],
   ["{", new Token("{", TokenType.T_OpenCurly, {row: 0, column: 0})],
-  ["&", new Token("&", TokenType.T_AndOp, {row: 0, column: 0})],
-  ["|", new Token("|", TokenType.T_OrOp, {row: 0, column: 0})],
   ["<=", new Token("<=", TokenType.T_LesEqOp, {row: 0, column: 0})],
   [">=", new Token(">=", TokenType.T_GreEqOp, {row: 0, column: 0})],
   ["==", new Token("==", TokenType.T_EqOp, {row: 0, column: 0})],
   ["!=", new Token("!=", TokenType.T_NotEqOp, {row: 0, column: 0})],
+  ["+=", new Token("+=", TokenType.T_PlusEqOp, {row: 0, column: 0})],
+  ["-=", new Token("-=", TokenType.T_MinEqOp, {row: 0, column: 0})],
   ["<", new Token("<", TokenType.T_LesOp, {row: 0, column: 0})],
   [">", new Token(">", TokenType.T_GreOp, {row: 0, column: 0})],
   ["=", new Token("=", TokenType.T_AssignOp, {row: 0, column: 0})],
@@ -42,8 +45,8 @@ describe("build_tokens", () => {
     test.each(tokenTests)("build_tokens for input '%s' should produce expected token", (input, expected) => {
         const SR = new CharacterReader(input);
         const lexer = new Lexer(SR);
-        const token = lexer.buildToken()
-        const token2 = lexer.buildToken()
+        const token = lexer.buildToken();
+        const token2 = lexer.buildToken();
         expect(token?.type).toEqual(expected.type);
         expect(token?.value).toEqual(expected.value);
         expect(token2?.type).toEqual(TokenType.T_EOF);
@@ -54,7 +57,7 @@ describe("variable_assignment", () => {
     test("should tokenize variable assignment correctly", () => {
         const SR = new CharacterReader("A10 = 5");
         const lexer = new Lexer(SR);
-        expect(lexer.buildToken()?.type).toEqual(TokenType.T_Identifier);
+        expect(lexer.buildToken()?.type).toEqual(TokenType.T_Cell);
         expect(lexer.buildToken()?.type).toEqual(TokenType.T_AssignOp);
         expect(lexer.buildToken()?.type).toEqual(TokenType.T_Int);
     });

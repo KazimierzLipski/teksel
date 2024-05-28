@@ -19,3 +19,15 @@ export class LexerError extends Error {
     this.position = position;
   }
 }
+
+export class ParserError extends Error {
+  type: ErrorType;
+  position: Position | undefined;
+  constructor(type: ErrorType, position: Position | undefined, message: string) {
+    super(
+      `${type}\nError at line:${position?.row} column:${position?.column}\n${message}`
+    );
+    this.type = type;
+    this.position = position;
+  }
+}
