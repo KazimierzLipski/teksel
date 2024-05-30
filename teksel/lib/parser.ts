@@ -253,8 +253,8 @@ export class Parser {
       | ForEachStatement
       | ReturnStatement
       | undefined =
-      this.parseAssignment() ||
-      this.parseConditionalStatement() ||
+      this.parseAssignment() ??
+      this.parseConditionalStatement() ??
       this.parseReturnStatement();
     if (anyStatement === undefined) return undefined;
     return anyStatement;
@@ -584,19 +584,13 @@ export class Parser {
       this.consume();
     }
 
-    let factor: Expression | undefined = this.parseInteger();
-    if (factor === undefined) {
-      factor = this.parseFloat();
-    }
-    if (factor === undefined) {
-      factor = this.parseText();
-    }
-    if (factor === undefined) {
-      factor = this.functionCallOrIDAndOrAttribute();
-    }
-    if (factor === undefined) {
-      factor = this.parseCellOrRangeOrAttribute();
-    }
+    let factor: Expression | undefined =
+      this.parseInteger() ??
+      this.parseFloat() ??
+      this.parseText() ??
+      this.functionCallOrIDAndOrAttribute() ??
+      this.parseCellOrRangeOrAttribute();
+
     if (factor === undefined) {
       factor = this.parseUseIf();
     }
