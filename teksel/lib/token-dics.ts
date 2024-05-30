@@ -1,14 +1,18 @@
 import {
+  AddExpression,
   Assignment,
   AssignmentMinusEquals,
   AssignmentPlusEquals,
+  DivideExpression,
   EqualExpression,
   Expression,
   GreaterThanExpression,
   GreaterThanOrEqualExpression,
   LessThanExpression,
   LessThanOrEqualExpression,
+  MultiplyExpression,
   NotEqualExpression,
+  SubtractExpression,
 } from "./statements";
 import { Position } from "./token";
 import { TokenType } from "./token-types";
@@ -129,6 +133,38 @@ export const relativeConstructors = new Map<TokenType, BinaryConstructorType>([
     },
   ],
 ]);
+
+export const additiveConstructors = new Map<TokenType, BinaryConstructorType>([
+  [
+    TokenType.T_AddOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new AddExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_MinOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new SubtractExpression(position, left, right);
+    },
+  ],
+]);
+
+export const multiplicativeConstructors = new Map<TokenType, BinaryConstructorType>([
+  [
+    TokenType.T_MulOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new MultiplyExpression(position, left, right);
+    },
+  ],
+  [
+    TokenType.T_DivOp,
+    (position: Position, left: Expression, right: Expression) => {
+      return new DivideExpression(position, left, right);
+    },
+  ],
+]);
+
+
 
 export const firstMultiCharToken = {
   "<": TokenType.T_LesOp,

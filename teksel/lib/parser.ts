@@ -1,13 +1,11 @@
 import { ErrorType, ParserError } from "./error-types";
 import { Lexer } from "./lexer";
 import {
-  AddExpression,
   AndExpression,
   ArgumentList,
   Assignment,
   Block,
   CellRange,
-  DivideExpression,
   Expression,
   FloatLiteral,
   ForEachStatement,
@@ -17,12 +15,10 @@ import {
   Identifier,
   IfStatement,
   IntegerLiteral,
-  MultiplyExpression,
   NegateExpression,
   OrExpression,
   Program,
   ReturnStatement,
-  SubtractExpression,
   TextLiteral,
   AttributeValue,
   UseStatement,
@@ -30,9 +26,9 @@ import {
 } from "./statements";
 import { Position, Token } from "./token";
 import {
-  additiveCharTokens,
+  additiveConstructors,
   assignmentConstructors,
-  multiplicativeCharTokens,
+  multiplicativeConstructors,
   relativeConstructors,
 } from "./token-dics";
 import { TokenType } from "./token-types";
@@ -191,7 +187,7 @@ export class Parser {
 
   parseFunctionCall = (identifier: string, position: Position | undefined) => {
     let argumentList;
-    if ((this.currentToken?.type as string) !== TokenType.T_OpenBracket) {
+    if (this.currentToken?.type !== TokenType.T_OpenBracket) {
       return undefined;
     } else {
       this.consume();
@@ -328,7 +324,7 @@ export class Parser {
       return this.throwUnexpectedToken("Expected a block, got: ");
 
     let elseBlock: Block | undefined;
-    if ((this.currentToken?.type as string) === TokenType.T_Else) {
+    if ((this.currentToken?.type as number) === TokenType.T_Else) {
       this.consume();
       elseBlock = this.parseBlock();
       if (elseBlock === undefined)
@@ -469,15 +465,12 @@ export class Parser {
 
   parseAdditiveExpression = () => {
     // additiveExpression = multiplicativeExpression, {("+" | "-"), multiplicativeExpression};
-    const position = this.currentToken?.position;
     let left: Expression | undefined = this.parseMultiplicativeExpression();
     if (left === undefined) return undefined;
 
-    let operator = this.getOperator(
-      additiveCharTokens,
-      this.currentToken?.type
-    );
-    while (operator !== undefined) {
+    let constructor = additiveConstructors.get(this.currentToken.type);
+    while (constructor !== undefined) {
+      let position = this.currentToken?.position;
       this.consume();
 
       const right: Expression | undefined =
@@ -487,48 +480,28 @@ export class Parser {
           "Expected a multiplicative expression, got:"
         );
 
-      switch (operator) {
-        case TokenType.T_AddOp:
-          left = new AddExpression(position, left, right);
-          break;
-        case TokenType.T_MinOp:
-          left = new SubtractExpression(position, left, right);
-          break;
-      }
-      operator = this.getOperator(additiveCharTokens, this.currentToken?.type);
+      left = constructor(position, left, right);
+      constructor = additiveConstructors.get(this.currentToken.type);
     }
     return left;
   };
 
   parseMultiplicativeExpression = () => {
     // multiplicativeExpression = factor, {("*" | "/"), factor};
-    const position = this.currentToken?.position;
     let left: Expression | undefined = this.parseFactor();
     if (left === undefined) return undefined;
 
-    let operator = this.getOperator(
-      multiplicativeCharTokens,
-      this.currentToken?.type
-    );
-    while (operator !== undefined) {
+    let constructor = multiplicativeConstructors.get(this.currentToken.type);
+    while (constructor !== undefined) {
+      let position = this.currentToken?.position;
       this.consume();
 
       const right = this.parseFactor();
       if (right === undefined)
         return this.throwUnexpectedToken("Expected a factor, got: ");
 
-      switch (operator) {
-        case TokenType.T_MulOp:
-          left = new MultiplyExpression(position, left, right);
-          break;
-        case TokenType.T_DivOp:
-          left = new DivideExpression(position, left, right);
-          break;
-      }
-      operator = this.getOperator(
-        multiplicativeCharTokens,
-        this.currentToken?.type
-      );
+      left = constructor(position, left, right);
+      constructor = multiplicativeConstructors.get(this.currentToken.type);
     }
 
     return left;
@@ -539,7 +512,7 @@ export class Parser {
     const position = this.currentToken?.position;
     this.consume();
 
-    switch (this.currentToken?.type as string) {
+    switch (this.currentToken?.type as number) {
       case TokenType.T_Value:
         this.consume();
         return new AttributeValue(position, left);
@@ -569,6 +542,39 @@ export class Parser {
     return attribute;
   };
 
+  parseUseIf = () => {
+    // useIf = "use", expression, "if", expression, "else", expression;
+    if (this.currentToken?.type !== TokenType.T_Use) return undefined;
+    const position = this.currentToken?.position;
+    this.consume();
+
+    const expression: Expression | undefined = this.parseExpression();
+    if (expression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_If,
+      "Expected 'if', got: "
+    );
+    this.consume();
+
+    const ifExpression: Expression | undefined = this.parseExpression();
+    if (ifExpression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    this.ifNotOfTypeThrowUnexpectedToken(
+      TokenType.T_Else,
+      "Expected 'else', got: "
+    );
+
+    this.consume();
+    const elseExpression: Expression | undefined = this.parseExpression();
+    if (elseExpression === undefined)
+      return this.throwUnexpectedToken("Expected an expression, got: ");
+
+    return new UseStatement(position, expression, ifExpression, elseExpression);
+  }
+
   parseFactor = () => {
     // factor =  [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
     const position = this.currentToken?.position;
@@ -590,6 +596,9 @@ export class Parser {
     }
     if (factor === undefined) {
       factor = this.parseCellOrRangeOrAttribute();
+    }
+    if (factor === undefined) {
+      factor = this.parseUseIf();
     }
     if (factor === undefined) {
       if (this.currentToken?.type === TokenType.T_OpenBracket) {
