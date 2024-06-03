@@ -18,10 +18,14 @@ import { Position } from "./token";
 import { TokenType } from "./token-types";
 
 export const singleCharTokens = {
-  "*": TokenType.T_MulOp,
-  "/": TokenType.T_DivOp,
+  "<": TokenType.T_LesOp,
+  ">": TokenType.T_GreOp,
+  "=": TokenType.T_AssignOp,
+  "!": TokenType.T_Neg,
   "-": TokenType.T_MinOp,
   "+": TokenType.T_AddOp,
+  "*": TokenType.T_MulOp,
+  "/": TokenType.T_DivOp,
   ",": TokenType.T_Coma,
   ":": TokenType.T_Colon,
   ";": TokenType.T_Semicolon,
@@ -39,13 +43,7 @@ export const multiCharTokens = {
   "!=": TokenType.T_NotEqOp,
   "+=": TokenType.T_PlusEqOp,
   "-=": TokenType.T_MinEqOp,
-  "<": TokenType.T_LesOp,
-  ">": TokenType.T_GreOp,
-  "=": TokenType.T_AssignOp,
-  "!": TokenType.T_Neg,
-  "-": TokenType.T_MinOp,
-  "+": TokenType.T_AddOp,
-};
+}
 
 export const additiveCharTokens = {
   "+": TokenType.T_AddOp,
@@ -63,10 +61,6 @@ type Fucuntion = (
   right: Expression
 ) => Assignment;
 
-const assignmentConstructo = {
-  "*": TokenType.T_MulOp,
-  "/": TokenType.T_DivOp,
-}
 
 export const assignmentConstructors = new Map<TokenType, Fucuntion>([
   [
@@ -149,7 +143,10 @@ export const additiveConstructors = new Map<TokenType, BinaryConstructorType>([
   ],
 ]);
 
-export const multiplicativeConstructors = new Map<TokenType, BinaryConstructorType>([
+export const multiplicativeConstructors = new Map<
+  TokenType,
+  BinaryConstructorType
+>([
   [
     TokenType.T_MulOp,
     (position: Position, left: Expression, right: Expression) => {
@@ -163,8 +160,6 @@ export const multiplicativeConstructors = new Map<TokenType, BinaryConstructorTy
     },
   ],
 ]);
-
-
 
 export const firstMultiCharToken = {
   "<": TokenType.T_LesOp,

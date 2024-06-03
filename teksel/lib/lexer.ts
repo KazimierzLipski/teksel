@@ -1,6 +1,10 @@
 import { CharacterReader } from "./character-reader";
 import { Position, Token } from "./token";
-import { keywords, multiCharTokens, singleCharTokens } from "./token-dics";
+import {
+  keywords,
+  multiCharTokens,
+  singleCharTokens,
+} from "./token-dics";
 import { ErrorType, LexerError } from "./error-types";
 import { TokenType } from "./token-types";
 
@@ -34,17 +38,15 @@ export class Lexer {
   }
 
   buildToken() {
-    while (this.skipWhitespace() || this.skipComments()) {}
+    while (this.skipWhitespace() || this.skipComments()) continue;
     this.tokenPosition = this.cr.getPosition();
     let token =
-      this.buildEOF() ||
-      this.buildMulticharOperator() ||
-      this.buildSinglecharOperator();
-    if (token === undefined) token = this.buildIdentifierOrKeywordOrCell();
-    if (token === undefined) token = this.buildString();
-    if (token === undefined) token = this.buildNumber();
-    if (token === undefined)
-      token = new Token("unknown", TokenType.T_Unknown, this.tokenPosition);
+      this.buildEOF() ??
+      this.buildOperator() ??
+      this.buildIdentifierOrKeywordOrCell() ??
+      this.buildString() ??
+      this.buildNumber() ??
+      this.buildUnknown();
     return token;
   }
 
@@ -60,8 +62,12 @@ export class Lexer {
   skipComments() {
     if (this.currentChar !== "#") return false;
     this.nextChar();
-    while (!["\n"].includes(this.currentChar as string)) this.nextChar();
+    while ((this.currentChar as string) !== "\n") this.nextChar();
     return true;
+  }
+
+  buildUnknown() {
+    return new Token("unknown", TokenType.T_Unknown, this.tokenPosition);
   }
 
   buildEOF() {
@@ -71,34 +77,25 @@ export class Lexer {
     return undefined;
   }
 
-  buildMulticharOperator() {
-    // do przerobienia
-    let string = "";
-    while (Object.keys(multiCharTokens).includes(this.currentChar as string)) {
-      string += this.currentChar!;
-      this.nextChar();
-    }
-    if (
-      string.length === 0 ||
-      multiCharTokens[string as keyof typeof multiCharTokens] === undefined
-    )
-      return;
-    return new Token(
-      string,
-      multiCharTokens[string as keyof typeof multiCharTokens],
-      this.tokenPosition
-    );
-  }
-
-  buildSinglecharOperator() {
+  buildOperator() {
     let tokenType =
       singleCharTokens[this.currentChar as keyof typeof singleCharTokens];
     if (tokenType === undefined) {
       return;
     }
-    const string = this.currentChar;
+    let string = this.currentChar;
     this.nextChar();
-    return new Token(string, tokenType, this.tokenPosition);
+
+    let multicharTokenType =
+      multiCharTokens[
+        (string + (this.currentChar as string)) as keyof typeof multiCharTokens
+      ];
+    if (multicharTokenType === undefined) {
+      return new Token(string, tokenType, this.tokenPosition);
+    }
+    string += this.currentChar as string;
+    this.nextChar();
+    return new Token(string, multicharTokenType, this.tokenPosition);
   }
 
   getCell() {

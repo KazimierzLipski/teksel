@@ -361,14 +361,6 @@ export class Parser {
     return new ForEachStatement(position, identifier, expression, block);
   };
 
-  getOperator = (
-    tokensToChoose: { [operator: string]: string },
-    currentTokenType: TokenType | undefined
-  ): string | undefined => {
-    let op = tokensToChoose[currentTokenType as keyof typeof tokensToChoose];
-    return op;
-  };
-
   parseAssignment = () => {
     // assignment = (functionCallOrIDAndOrAttribute | cellOrRangeOrAttribute), ("=" | "+=" | "-="), (expression | useIf);
     const position = this.currentToken?.position;
@@ -573,7 +565,7 @@ export class Parser {
       return this.throwUnexpectedToken("Expected an expression, got: ");
 
     return new UseStatement(position, expression, ifExpression, elseExpression);
-  }
+  };
 
   parseFactor = () => {
     // factor =  [negation], (integer | float | text | functionCallOrID | "(", expression, ")" | cellOrRangeOrAttribute);
@@ -589,11 +581,9 @@ export class Parser {
       this.parseFloat() ??
       this.parseText() ??
       this.functionCallOrIDAndOrAttribute() ??
-      this.parseCellOrRangeOrAttribute();
+      this.parseCellOrRangeOrAttribute() ??
+      this.parseUseIf();
 
-    if (factor === undefined) {
-      factor = this.parseUseIf();
-    }
     if (factor === undefined) {
       if (this.currentToken?.type === TokenType.T_OpenBracket) {
         this.consume();
