@@ -540,8 +540,8 @@ export class Parser {
     const position = this.currentToken?.position;
     this.consume();
 
-    const expression: Expression | undefined = this.parseExpression();
-    if (expression === undefined)
+    const trueExpression: Expression | undefined = this.parseExpression();
+    if (trueExpression === undefined)
       return this.throwUnexpectedToken("Expected an expression, got: ");
 
     this.ifNotOfTypeThrowUnexpectedToken(
@@ -560,11 +560,16 @@ export class Parser {
     );
 
     this.consume();
-    const elseExpression: Expression | undefined = this.parseExpression();
-    if (elseExpression === undefined)
+    const falseExpression: Expression | undefined = this.parseExpression();
+    if (falseExpression === undefined)
       return this.throwUnexpectedToken("Expected an expression, got: ");
 
-    return new UseStatement(position, expression, ifExpression, elseExpression);
+    return new UseStatement(
+      position,
+      ifExpression,
+      trueExpression,
+      falseExpression
+    );
   };
 
   parseFactor = () => {

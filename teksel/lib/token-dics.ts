@@ -1,5 +1,6 @@
 import {
   AddExpression,
+  Assignee,
   Assignment,
   AssignmentMinusEquals,
   AssignmentPlusEquals,
@@ -57,7 +58,7 @@ export const multiplicativeCharTokens = {
 
 type Fucuntion = (
   position: Position,
-  left: Expression,
+  left: Assignee,
   right: Expression
 ) => Assignment;
 
@@ -65,19 +66,19 @@ type Fucuntion = (
 export const assignmentConstructors = new Map<TokenType, Fucuntion>([
   [
     TokenType.T_AssignOp,
-    (position: Position, left: Expression, right: Expression) => {
+    (position: Position, left: Assignee, right: Expression) => {
       return new Assignment(position, left, right);
     },
   ],
   [
     TokenType.T_PlusEqOp,
-    (position: Position, left: Expression, right: Expression) => {
+    (position: Position, left: Assignee, right: Expression) => {
       return new AssignmentPlusEquals(position, left, right);
     },
   ],
   [
     TokenType.T_MinEqOp,
-    (position: Position, left: Expression, right: Expression) => {
+    (position: Position, left: Assignee, right: Expression) => {
       return new AssignmentMinusEquals(position, left, right);
     },
   ],

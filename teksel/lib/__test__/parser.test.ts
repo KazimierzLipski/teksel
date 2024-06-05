@@ -706,3 +706,18 @@ test("parse_wholeProgramWithAdd", () => {
   logThis(expression);
   expect(expression).toBeDefined();
 });
+
+test("parse_myTest", () => {
+  const SR = new CharacterReader(
+    `def main()
+    {
+        a = A2
+        a.value = 1
+        # A2 should be equal to "you"
+    }`
+  );
+  const parser = new Parser(new Lexer(SR));
+  const expression = parser.parseProgram();
+  logThis(expression);
+  expect(expression).toBeDefined();
+});

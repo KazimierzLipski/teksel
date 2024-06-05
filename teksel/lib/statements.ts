@@ -1,3 +1,4 @@
+import { Scope } from "./interpreter";
 import { Position } from "./token";
 
 interface IVisitable {
@@ -53,7 +54,7 @@ class ProgramPrinter implements IVisitor {
   private printAssignment(element: Assignment, operation: string) {
     console.log(`${operation}:`);
     console.log("Left, the expression to be assigned to:");
-    element.expression.accept(this);
+    element.assignee.accept(this);
     console.log("Right, the assigned expression:");
     element.assigned.accept(this);
   }
@@ -97,8 +98,8 @@ class ProgramPrinter implements IVisitor {
   }
   public visitIfStatement(element: IfStatement): void {
     console.log("IfStatement: ");
-    console.log("Expression: ");
-    element.expression.accept(this);
+    console.log("Condition: ");
+    element.condition.accept(this);
     console.log("Block: ");
     element.block.accept(this);
     console.log("ElseBlock: ");
@@ -129,6 +130,10 @@ class ProgramPrinter implements IVisitor {
   }
   public visitAssignmentMinusEquals(element: AssignmentMinusEquals): void {
     this.printAssignment(element, "AssignmentMinusEquals");
+  }
+  public visitExpression(element: Expression): void {
+    console.log("Expression: ");
+    element.accept(this);
   }
   public visitOrExpression(element: OrExpression): void {
     this.printBinaryExpression(element, "OrExpression");
@@ -236,6 +241,8 @@ export class FunctionDefinition extends ASTNode implements IVisitable {
   identifier: string;
   parametersList: string[];
   block: Block;
+  scope: Scope | undefined;
+
   constructor(
     position: Position | undefined,
     identifier: string,
@@ -302,7 +309,7 @@ export class Block extends ASTNode implements IVisitable {
     this.anyStatements = anyStatements;
   }
   accept(visitor: IVisitor): void {
-    throw new Error("Method not implemented.");
+    visitor.visitBlock(this);
   }
 }
 
@@ -321,17 +328,17 @@ export class ReturnStatement extends ASTNode implements IVisitable {
 }
 
 export class IfStatement extends ASTNode implements IVisitable {
-  expression: Expression;
+  condition: Expression;
   block: Block;
   elseBlock: Block | undefined;
   constructor(
     position: Position | undefined,
-    expression: Expression,
+    condition: Expression,
     block: Block,
     elseBlock: Block | undefined
   ) {
     super(position);
-    this.expression = expression;
+    this.condition = condition;
     this.block = block;
     this.elseBlock = elseBlock;
   }
@@ -380,17 +387,25 @@ export class ForEachStatement extends ASTNode implements IVisitable {
   }
 }
 
+export type Assignee =
+  | Cell
+  | CellRange
+  | FunctionCall
+  | AttributeFormula
+  | AttributeValue
+  | Identifier;
+
 export class Assignment extends ASTNode implements IVisitable {
-  expression: Expression;
+  assignee: Assignee;
   assigned: Expression | UseStatement;
   constructor(
     position: Position | undefined,
-    expression: Expression,
+    assignee: Assignee,
     assigned: Expression | UseStatement
   ) {
     super(position);
     this.assigned = assigned;
-    this.expression = expression;
+    this.assignee = assignee;
   }
   accept(visitor: IVisitor): void {
     visitor.visitAssignment(this);

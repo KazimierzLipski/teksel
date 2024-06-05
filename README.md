@@ -110,7 +110,7 @@ def main()
 def main()
 {
     B1 = 43;
-    B2 = if (B1>0) {10} else {54}
+    B2 = use 10 if B1>0 else 54
     # B2 should be 54
 }
 ```
@@ -123,7 +123,7 @@ def count(range)
     count = 0
     foreach cell in range
     {
-       count += if {cell.value!=null} (1) else (0)
+       count += use 1 if cell.value!=null else 0
     }
     return count
 }
@@ -147,8 +147,8 @@ def trim(cell)
     spaces = 0
     foreach letter in cell
     {
-      spaces += if (letter==" ") {1} else {-spaces}
-      newCell += if (spaces<=1) {letter} else {""}
+      spaces += use 1 if letter==" " else -spaces
+      newCell += use letter if spaces<=1 else ""
     }
     return newCell
 }
@@ -169,12 +169,11 @@ def mid(cell, indexFrom, chars)
     newCell = ""
     count = 0
     tempNewLetter = ""
-    100.2 + if (count>=indexFrom) {letter} else {""}
     foreach letter in cell
     {
       count += 1
-      tempNewLetter = if (count>=indexFrom) {letter} else {""}
-      newCell += if (indexFrom+chars<count) {tempNewLetter} else {""}
+      tempNewLetter = use letter if count>=indexFrom else ""
+      newCell += use tempNewLetter if indexFrom+chars<count else ""
     }
     return newCell
 }
