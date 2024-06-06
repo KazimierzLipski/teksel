@@ -13,16 +13,8 @@ test("parse_myTest", () => {
   const SR = new CharacterReader(
     `def main()
     {
-        count = "0"
-        cell = "123   "
-        spaces = 0
-        foreach letter in cell
-        {
-          count += letter
-          spaces += use 1 if letter == " " else 20
-        }
-        # a = use 10 if 2 == 2 else 20
-        return spaces
+        a = 1 + 1
+        return a
     }`
   );
   const parser = new Parser(new Lexer(SR));

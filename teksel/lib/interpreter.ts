@@ -37,142 +37,89 @@ import {
   UseStatement,
 } from "./statements";
 import { Position } from "./token";
+import {
+  variantModule,
+  VariantOf,
+  TypeNames,
+  match,
+  isType,
+  variantList,
+} from "variant";
 
 // export class VariableManager -> zarządza scopami i call contekstów
+export class VariableManager {
+  scopes: Scope[] = [];
+  callContexts: any[] = [];
 
-export class Scope {
-  nestedScope: Scope | undefined;
-  parentScope: Scope | null;
-  variables: Map<string, any>;
-
-  constructor(variables: Map<string, any>, parentScope: Scope | null = null) {
-    this.variables = new Map(variables);
-    this.parentScope = parentScope;
+  onBlockEntry() {
+    this.scopes.push(new Scope(new Map()));
   }
 
-  createNestedScope(variables: Map<string, any>): Scope {
-    const newScope = new Scope(variables, this);
-    this.nestedScope = newScope;
-    return newScope;
+  onBlockExit() {
+    this.scopes.pop();
   }
 
-  getVariable(name: string): any {
-    if (this.variables.has(name)) {
-      return this.variables.get(name);
-    }
-    if (this.parentScope !== undefined) {
-      const variable = this.parentScope?.getVariable(name);
-      if (variable !== undefined) {
-        return variable;
+  onFunctionEntry() {
+    this.callContexts.push(new Map());
+  }
+
+  onFunctionExit() {
+    this.callContexts.pop();
+  }
+
+  getVariable(name: string) {
+    for (let i = this.scopes.length - 1; i >= 0; i--) {
+      const scope = this.scopes[i];
+      if (scope.variables.has(name)) {
+        return scope.variables.get(name);
       }
     }
-    return undefined;
+  }
+
+  setVariable(name: string, value: any) {
+    this.scopes[this.scopes.length - 1].variables.set(name, value);
+  }
+}
+
+export class Scope {
+  variables: Map<string, any>;
+
+  constructor(variables: Map<string, any>) {
+    this.variables = new Map(variables);
   }
 }
 
 export class Interpreter implements IVisitor {
   functionsDefinitions: Map<string, FunctionDefinition> = new Map();
-  typeDefinitions: Map<string, any> = new Map();
 
   setCells() {
-    let newRows = [];
-    let newCells = [];
-    const N = 99;
-    const M = 26;
-    for (let i = 0; i < N; i++) {
-      newRows.push([]);
+    let newCells: Value<"cell">[][] = [];
+    const ROW_MAX = 100;
+    const COL_MAX = 26;
+    for (let row = 0; row < ROW_MAX; row++) {
+      let newRow = [];
+      for (let col = 0; col < COL_MAX; col++) {
+        newRow.push(Value.cell("", row, String.fromCharCode(col + 65), ""));
+      }
+      newCells.push(newRow);
     }
-    for (let j = 0; j < M; j++) {
-      newCells.push(newRows);
-    }
+    return newCells;
   }
 
-  cells = this.setCells();
+  cells: Value<"cell">[][] = this.setCells();
 
-  currentScope: Scope = new Scope(new Map());
-  prevScope: Scope | undefined = undefined;
+  varManager = new VariableManager();
 
   isReturning: boolean = false;
 
   prevRanFuncName: string = "";
   recursionDepthCounter: number = 0;
 
-  lastCalculation?: string | number | boolean | (string | number | boolean)[] =
-    undefined;
+  lastCalculation: Value | undefined = undefined;
 
-    inAssignment: boolean = false;
+  argumentList: Value[] = [];
 
-  tryGetFromDict(dict: Map<string, any>, member: string, position: Position) {
-    if (dict.has(member)) {
-      return dict.get(member);
-    }
-    throw new InterpreterError(
-      ErrorType.E_ValueError,
-      position,
-      `${member} is undefined`
-    );
-  }
-
-  createNestedScope(vars: Map<string, any>) {
-    this.currentScope = this.currentScope.createNestedScope(vars);
-  }
-
-  deleteCurrentScope() {
-    if (this.currentScope.parentScope === null) return;
-    this.currentScope = this.currentScope.parentScope;
-    this.currentScope.nestedScope = undefined;
-  }
-
-  evaluateBlock(block: any, vars: Map<string, any>) {}
-
-  lookForVariable(identifier: string) {
-    const variable = this.currentScope.getVariable(identifier);
-    return variable;
-  }
-
-  findVariableOrThrow(identifier: string, position: any) {
-    const variable = this.lookForVariable(identifier);
-    if (variable) {
-      return variable;
-    }
-    throw new InterpreterError(
-      ErrorType.E_NameError,
-      position,
-      `NameError: name '${identifier}' is not defined`
-    );
-  }
-
-  evaluateArgs(args?: ArgumentList, params?: string[], position?: Position) {
-    const evaluatedArgs: Map<string, any> = new Map();
-    const argumentsList = args?.arguments;
-
-    if (argumentsList?.length !== params?.length) {
-      throw new InterpreterError(
-        ErrorType.E_ValueError,
-        position,
-        `Expected ${params?.length} arguments, got ${argumentsList?.length}`
-      );
-    }
-    if (
-      argumentsList === undefined ||
-      params === undefined ||
-      args === undefined
-    )
-      return evaluatedArgs;
-    for (let i = 0; i < argumentsList.length; i++) {
-      const arg = argumentsList[i];
-      const param = params[i];
-      const evalArg = arg.accept(this).value ?? { value: undefined };
-
-      evaluatedArgs.set(param, {
-        position: args.position,
-        name: param,
-        value: evalArg,
-      });
-    }
-
-    return evaluatedArgs;
-  }
+  inAssignment: boolean = false;
 
   throwOperandTypesError(
     left: any,
@@ -188,17 +135,16 @@ export class Interpreter implements IVisitor {
   }
 
   visitProgram(element: Program) {
-    // const definitions = Array.from(element.definitions.values());
-    // for (let i = 0; i < definitions.length; i++) {
-    //   const stmt = definitions[i];
-    //   const result = stmt.accept(this);
-    //   if (this.isReturning) {
-    //     if (result !== undefined) {
-    //       return { value: result };
-    //     }
-    //     return;
-    //   }
-    // }
+    const definitions = Array.from(element.definitions.values());
+    for (const stmt of definitions) {
+      const result = stmt.accept(this);
+      if (this.isReturning) {
+        if (result !== undefined) {
+          return { value: result };
+        }
+        return;
+      }
+    }
 
     try {
       console.log(this.functionsDefinitions);
@@ -210,13 +156,12 @@ export class Interpreter implements IVisitor {
           "No main function defined."
         );
       }
-      const returnVal = new FunctionCall(
+      new FunctionCall(
         mainFuncDef?.position,
         "main",
         new ArgumentList(mainFuncDef?.position, [])
-      ).accept(this).value;
-      console.log("RETURN VAL PROG:", returnVal);
-      return returnVal === undefined ? null : returnVal;
+      ).accept(this);
+      console.log("RETURN VAL PROG:", this.lastCalculation?.get());
     } catch (e) {
       console.log(e);
     }
@@ -240,6 +185,39 @@ export class Interpreter implements IVisitor {
     this.prevRanFuncName = funId;
   }
 
+  evaluateArgs(args?: ArgumentList, params?: string[], position?: Position) {
+    const evaluatedArgs: Map<string, any> = new Map();
+    const argumentsList = args?.arguments;
+
+    if (argumentsList?.length !== params?.length) {
+      throw new InterpreterError(
+        ErrorType.E_ValueError,
+        position,
+        `Expected ${params?.length} arguments, got ${argumentsList?.length}`
+      );
+    }
+    if (
+      argumentsList === undefined ||
+      params === undefined ||
+      args === undefined
+    )
+      return evaluatedArgs;
+    for (let i = 0; i < argumentsList.length; i++) {
+      const arg = argumentsList[i];
+      const param = params[i];
+      arg.accept(this);
+      const evalArg = this.lastCalculation;
+
+      evaluatedArgs.set(param, {
+        position: args.position,
+        name: param,
+        value: evalArg,
+      });
+    }
+
+    return evaluatedArgs;
+  }
+
   runFunction(funDef: FunctionDefinition, funCall: FunctionCall) {
     const funcVars: Map<string, any> = new Map();
     const evaluatedArgs = this.evaluateArgs(
@@ -258,21 +236,18 @@ export class Interpreter implements IVisitor {
     this.checkRecursionLimit(funDef.identifier, funCall.position);
 
     this.isReturning = false;
-    const returnVal = this.evaluateBlock(funDef.block, funcVars).value;
-    console.log("RETURN VAL:", returnVal);
-
-    return { value: returnVal };
+    funDef.block.accept(this);
+    console.log("RETURN VAL:", this.lastCalculation);
   }
 
   visitFunctionDefinition(element: FunctionDefinition) {
-    const argumentList = this.lastCalculation;
-    if ((argumentList as any[])?.length !== element.parametersList.length)
+    const argumentList = this.argumentList;
+    if (argumentList.length !== element.parametersList.length)
       throw new InterpreterError(
         ErrorType.E_TypeError,
         element.position,
         `The number of arguments and parameters is incorrect`
       );
-    // this.manager.onFunctionEntry()
     const funcName = element.identifier;
     if (this.functionsDefinitions.has(funcName)) {
       throw new InterpreterError(
@@ -281,12 +256,16 @@ export class Interpreter implements IVisitor {
         `Name ${funcName} is shadowing builtin function`
       );
     }
-    element.scope = this.currentScope;
     this.functionsDefinitions.set(funcName, element);
-    // this.manager.onFunctionExit()
   }
-  visitArgumentList(element: ArgumentList) {
-    throw new Error("visitArgumentList method not implemented.");
+  visitArgumentList(element?: ArgumentList) {
+    if (element === undefined) return;
+    const argumentList: Value[] = [];
+    for (const arg of element.arguments) {
+      arg.accept(this);
+      argumentList.push(this.lastCalculation!);
+    }
+    return argumentList;
   }
   visitFunctionCall(element: FunctionCall) {
     const funcName = element.identifier;
@@ -298,66 +277,82 @@ export class Interpreter implements IVisitor {
         `NameError: name '${funcName}' is not defined`
       );
     }
-    // wyliczyć wszystkie arumenty i wrzucić do tablicy
-    // przypisać do this.lastCalculation
-    funDef.accept(this);
+    this.varManager.onFunctionEntry();
+    element.argumentList?.accept(this);
+    this.runFunction(funDef, element);
+    this.varManager.onFunctionExit();
   }
   visitBlock(element: Block) {
-    // this.createNestedScope(vars);
-    // this.manager.onBlockEntry
+    this.varManager.onBlockEntry();
     for (const stmt of element.anyStatements) {
       if (typeof stmt === "string") continue;
-      let value = stmt.accept(this);
-      if (value && value.value) {
-        value = value.value;
-      }
+      stmt.accept(this);
       if (this.isReturning) {
-        console.log("I MUST RETURN THIS blocc:", value);
-        return { value: value };
+        console.log("I MUST RETURN THIS blocc:", this.lastCalculation);
+        return;
       }
     }
-    // this.deleteCurrentScope();
-    this.lastCalculation = value;
-    // this.manager.onBlockExit
-    // return { value };
+    this.varManager.onBlockExit();
   }
 
   visitReturnStatement(element: ReturnStatement) {
-    let value = element.referent?.accept(this);
+    element.referent?.accept(this);
     this.isReturning = true;
-    if (value.value) {
-      value = value.value;
-    }
-    console.log("I MUST RETURN THIS:", value);
-    return { value: value };
+    console.log("I MUST RETURN THIS:", this.lastCalculation);
   }
 
   visitIfStatement(element: IfStatement) {
-    const condition = element.condition.accept(this);
+    element.condition.accept(this);
+    const condition = this.lastCalculation?.get();
     if (condition) {
-      const value = this.evaluateBlock(element.block, new Map());
-      if (this.isReturning) {
-        return { value };
-      }
+      this.visitBlock(element.block);
+      if (this.isReturning) return;
     } else if (element.elseBlock !== undefined) {
-      const value = this.evaluateBlock(element.elseBlock, new Map());
-      if (this.isReturning) {
-        return { value };
-      }
+      this.visitBlock(element.elseBlock);
+      if (this.isReturning) return;
     }
   }
   visitUseStatement(element: UseStatement) {
-    const checkExpression = element.checkExpression.accept(this).value;
-    const trueExpression = element.trueExpression.accept(this).value;
+    element.checkExpression.accept(this);
+    const checkExpression = this.lastCalculation?.get();
+    element.trueExpression.accept(this);
+    const trueExpression: Value | undefined = this.lastCalculation;
     console.log("CHECK EXPRESSION:", checkExpression);
     console.log("TRUE EXPRESSION:", trueExpression);
-    if (checkExpression === true) {
-      return { value: trueExpression };
+    if (checkExpression === true && trueExpression !== undefined) {
+      this.lastCalculation = getLiteral(trueExpression);
     }
-    return { value: element.falseExpression.accept(this).value };
+    element.trueExpression.accept(this);
+    const falseExpression: Value | undefined = this.lastCalculation;
+    if (falseExpression === undefined) {
+      throw new InterpreterError(
+        ErrorType.E_ValueError,
+        element.position,
+        "Some expression is undefined"
+      );
+    }
+    this.lastCalculation = getLiteral(falseExpression);
   }
   visitForEachStatement(element: ForEachStatement) {
-    const iterable = element.expression.accept(this).value;
+    element.expression.accept(this);
+    let expr: Value | undefined = this.lastCalculation;
+    let iterable: string | Value<"cell">[] | undefined;
+    if (isType(expr, "cellRange")) {
+      iterable = expr.cells;
+    }
+    if (
+      isType(expr, "integer") ||
+      isType(expr, "float") ||
+      isType(expr, "boolean") ||
+      isType(expr, "cell") ||
+      isType(expr, "identifier")
+    ) {
+      throw new InterpreterError(
+        ErrorType.E_TypeError,
+        element.position,
+        "Iterable must be a list"
+      );
+    }
     const iterableName = element.identifier;
     const block = element.block;
 
@@ -370,17 +365,13 @@ export class Interpreter implements IVisitor {
     }
     console.log("ITERABLE:", iterable);
     if (iterable.length) {
-      for (let i = 0; i < iterable.length; i++) {
-        const cell = iterable[i];
-        this.currentScope.variables.set(iterableName, cell);
+      for (const element of iterable) {
+        const cell = element;
+        this.varManager.setVariable(iterableName, cell);
         console.log("iterableName:", iterableName);
-        console.log(this.currentScope);
-        const value = this.evaluateBlock(
-          block,
-          new Map([[iterableName, cell]])
-        ).value;
+        block.accept(this);
         if (this.isReturning) {
-          return { value: value };
+          return;
         }
       }
     } else {
@@ -394,7 +385,7 @@ export class Interpreter implements IVisitor {
 
   visitAssignment(element: Assignment) {
     element.assigned.accept(this);
-    if (this.lastCalculation === undefined){
+    if (this.lastCalculation === undefined) {
       throw new InterpreterError(
         ErrorType.E_NameError,
         element.position,
@@ -404,35 +395,29 @@ export class Interpreter implements IVisitor {
     this.inAssignment = true;
     element.assignee.accept(this);
     this.inAssignment = false;
-    if (this.lastCalculation === undefined) {}
-    // a = 1
-    // A10.value = 1
-    // a.b() = 1
-    // a() = 1
-    this.currentScope.variables.set(left, result);
+    // if (this.lastCalculation === undefined) {
+    // }
+    // this.currentScope.variables.set(left, result);
   }
   visitAssignmentPlusEquals(element: AssignmentPlusEquals) {
-    const left = element.assignee.accept(this).name;
-    const leftValue = this.currentScope.getVariable(left);
-    if (leftValue === undefined) {
-      throw new InterpreterError(
-        ErrorType.E_NameError,
-        element.position,
-        `NameError: name '${left}' is not defined`
-      );
-    }
-    const assigned = element.assigned.accept(this).value;
-    if (typeof leftValue === "number" && typeof assigned === "number") {
-      this.currentScope.parentScope?.variables.set(left, leftValue + assigned);
-    } else if (typeof leftValue === "string" && typeof assigned === "string") {
-      this.currentScope.parentScope?.variables.set(left, leftValue + assigned);
+    element.assignee.accept(this);
+    const prevValue = this.lastCalculation?.get();
+    element.assigned.accept(this);
+    const assigned = this.lastCalculation?.get();
+    if (typeof prevValue === "number" && typeof assigned === "number") {
+      this.lastCalculation = Value.integer(prevValue + assigned);
+    } else if (typeof prevValue === "string" && typeof assigned === "string") {
+      this.lastCalculation = Value.text(prevValue + assigned);
     } else {
       throw new InterpreterError(
         ErrorType.E_TypeError,
         element.position,
-        `Operands for + cannot have these types ${typeof leftValue} ${typeof assigned}`
+        `Operands for + cannot have these types ${typeof prevValue} ${typeof assigned}`
       );
     }
+    this.inAssignment = true;
+    element.assignee.accept(this);
+    this.inAssignment = false;
   }
   visitAssignmentMinusEquals(element: AssignmentMinusEquals) {
     throw new Error("visitAssignmentMinusEquals method not implemented.");
@@ -453,9 +438,11 @@ export class Interpreter implements IVisitor {
     throw new Error("visitLessThanOrEqualExpression Method not implemented.");
   }
   visitEqualExpression(element: EqualExpression) {
-    const left = element.leftExpression.accept(this).value;
-    const right = element.rightExpression.accept(this).value;
-    return { value: left === right };
+    element.leftExpression.accept(this);
+    const left = this.lastCalculation?.get();
+    element.rightExpression.accept(this);
+    const right = this.lastCalculation?.get();
+    this.lastCalculation = Value.boolean(left === right);
   }
   visitNotEqualExpression(element: NotEqualExpression) {
     throw new Error("visitNotEqualExpression Method not implemented.");
@@ -469,29 +456,34 @@ export class Interpreter implements IVisitor {
     throw new Error("visitGreaterThanExpression Method not implemented.");
   }
   visitAddExpression(element: AddExpression) {
-    const left = element.leftExpression.accept(this).value;
-    const right = element.rightExpression.accept(this).value;
+    element.leftExpression.accept(this);
+    const left = this.lastCalculation?.get();
+    element.rightExpression.accept(this);
+    const right = this.lastCalculation?.get();
     if (left === undefined || right === undefined)
       throw new InterpreterError(
         ErrorType.E_ValueError,
         element.position,
         "Some expression is undefined"
       );
-
+    console.log("LEFT:", left, "RIGHT:", right);
+    console.log("TYPEOF LEFT:", typeof left, "TYPEOF RIGHT:", typeof right);
+    console.log("IS NUMBER:", typeof left === "number", typeof right === "number");
     if (typeof left === "number" && typeof right === "number")
-      return { value: left + right };
-
-    if (typeof left === "string" && typeof right === "string") {
-      return { value: left + right };
+      this.lastCalculation = Value.integer(left + right);
+    else if (typeof left === "string" && typeof right === "string") {
+      this.lastCalculation = Value.text(left + right);
     }
-    this.throwOperandTypesError(left, right, "+", element.position);
+    else this.throwOperandTypesError(left, right, "+", element.position);
   }
   visitSubtractExpression(element: SubtractExpression) {
     throw new Error("visitSubtractExpression Method not implemented.");
   }
   visitMultiplyExpression(element: MultiplyExpression) {
-    const left = element.leftExpression.accept(this).value;
-    const right = element.rightExpression.accept(this).value;
+    element.leftExpression.accept(this);
+    let left = this.lastCalculation?.get();
+    element.rightExpression.accept(this);
+    let right = this.lastCalculation?.get();
     if (left === undefined || right === undefined)
       throw new InterpreterError(
         ErrorType.E_ValueError,
@@ -500,23 +492,23 @@ export class Interpreter implements IVisitor {
       );
 
     if (typeof left === "number" && typeof right === "number") {
-      return left * right;
+      this.lastCalculation = Value.integer(left + right);
     }
-    if (typeof left === "string" && typeof right === "number") {
+    else if (typeof left === "string" && typeof right === "number") {
       let result = "";
       for (let i = 0; i < right; i++) {
         result += right;
       }
-      return result;
+      this.lastCalculation = Value.text(result);
     }
-    if (typeof left === "number" && typeof right === "string") {
+    else if (typeof left === "number" && typeof right === "string") {
       let result = "";
       for (let i = 0; i < left; i++) {
         result += right;
       }
-      return result;
+      this.lastCalculation = Value.text(result);
     }
-    this.throwOperandTypesError(left, right, "*", element.position);
+    else this.throwOperandTypesError(left, right, "*", element.position);
   }
   visitDivideExpression(element: DivideExpression) {
     throw new Error("visitDivideExpression Method not implemented.");
@@ -525,86 +517,218 @@ export class Interpreter implements IVisitor {
     throw new Error("visitNegateExpression Method not implemented.");
   }
   visitFormulaAttribute(element: AttributeFormula) {
-    throw new Error("visitFormulaAttribute Method not implemented.");
-  }
-  visitValueAttribute(element: AttributeValue) {
-    if (this.inAssignment){
+    if (this.inAssignment) {
       this.inAssignment = false;
     } else {
-
+      element.expression.accept(this);
+      if (isType(this.lastCalculation, "cell")) {
+        this.lastCalculation = Value.text(this.lastCalculation.formula);
+      }
+    }
+  }
+  visitValueAttribute(element: AttributeValue) {
+    if (this.inAssignment) {
+      this.inAssignment = false;
+    } else {
+      element.expression.accept(this);
     }
   }
   visitCellRange(element: CellRange) {
-    let start = element.start.accept(this);
-    let end = element.end.accept(this);
-    let listOfCells = [];
-    if (start === undefined || end === undefined)
-      throw new InterpreterError(
-        ErrorType.E_ValueError,
-        element.position,
-        "Some expression is undefined"
-      );
-    for (let i = start.row; i <= end.row; i++) {
+    let listOfCells: Value<"cell">[] = [];
+    for (let i = element.start.row; i <= element.end.row; i++) {
       for (
-        let j = start.column.charCodeAt(0);
-        j <= end.column.charCodeAt(0);
+        let j = element.start.column.charCodeAt(0);
+        j <= element.end.column.charCodeAt(0);
         j++
       ) {
-        listOfCells.push({ row: i, column: String.fromCharCode(j) });
+        let cell = this.cells[i][j - 65];
+        listOfCells.push(cell);
       }
     }
-    return { value: listOfCells };
+    this.lastCalculation = Value.cellRange(listOfCells[0].get(), listOfCells);
+  }
+
+  letterToColumn(letter: string) {
+    return letter.charCodeAt(0) - 65;
   }
   visitCell(element: Cell) {
-    const value = this.currentScope.getVariable(
-      element.column + String(element.row)
-    );
-    return { value: value, row: element.row, column: element.column };
+    let cell = this.cells[element.row][this.letterToColumn(element.column)];
+    if (this.inAssignment) {
+      cell.set(this.lastCalculation?.get()!);
+      this.inAssignment = false;
+    } else {
+      this.lastCalculation = cell;
+    }
   }
   visitIdentifier(element: Identifier) {
-    if (this.inAssignment){
-      const value = this.currentScope.getVariable(element.name);
-      if (value !== undefined){
-        value.set(this.lastCalculation)
-        this.inAssignment = false;
-      } else {
-        this.currentScope.setVariable(element.name, this.lastCalculation)
-        this.inAssignment = false;
-      }
+    if (this.inAssignment) {
+      // NOSONAR
+      // const value = this.varManager.getVariable(element.name);
+      // if (value !== undefined) {
+      //   value.set(this.lastCalculation);
+      //   this.inAssignment = false;
+      // } else {
+      //   this.varManager.setVariable(element.name, this.lastCalculation);
+      //   this.inAssignment = false;
+      // }
+      this.varManager.setVariable(element.name, this.lastCalculation);
+      this.inAssignment = false;
     } else {
-      this.lastCalculation = this.currentScope.getVariable(element.name)
+      this.lastCalculation = this.varManager.getVariable(element.name);
     }
   }
   visitText(element: TextLiteral) {
-    return { value: element.value };
+    this.lastCalculation = Value.text(element.value);
   }
   visitFloat(element: FloatLiteral) {
-    this.lastCalculation = new FloatValue(element.value);
+    this.lastCalculation = Value.float(element.value);
   }
   visitInteger(element: IntegerLiteral) {
-    this.lastCalculation = new IntValue(element.value);
+    this.lastCalculation = Value.integer(element.value);
   }
 }
 
 // Values
-class IntValue{
-    value?: number
-    constructor(value: number) {
-      this.set(value);
-    }
-    set(value: number) {
-      this.value = value;
-    }
-    get() {
-      return this.value
-    }
-  }
 
-// Value -> CellValue, IntValue...
-const vars = new Map<string, any>([
-  ["count", new IntValue(0)],
-  [
-    "A2",
-    { set: () => {}, get: () => {}, value: 0, rowValue: 2, columnValue: "A" },
-  ],
-]);
+// class Value {
+//   value: ValueType;
+//   constructor(value: ValueType) {
+//     this.value = value;
+//   }
+//   set(value: ValueType) {
+//     this.value = value;
+//   }
+//   get(): ValueType {
+//     return this.value;
+//   }
+// }
+
+// class FloatValue extends Value {}
+
+// class BooleanValue extends Value {}
+
+// class IntValue extends Value {}
+
+// class TextValue extends Value {}
+
+// class IdentifierValue extends Value {
+//   name: string;
+//   constructor(value: ValueType, name: string) {
+//     super(value);
+//     this.name = name;
+//   }
+// }
+
+// class CellValue extends Value {
+//   row: number;
+//   column: string;
+//   formula: string;
+//   constructor(value: ValueType, row: number, column: string, formula: string) {
+//     super(value);
+//     this.row = row;
+//     this.column = column;
+//     this.formula = formula;
+//   }
+// }
+
+// class CellRangeValue extends Value {
+//   cells: CellValue[];
+//   constructor(cells: CellValue[]) {
+//     super(cells[0]?.get() ?? "");
+//     this.cells = cells;
+//   }
+//   get() {
+//     return this.cells[0]?.get();
+//   }
+// }
+
+// type ValueTypes =
+//   | FloatValue
+//   | IntValue
+//   | BooleanValue
+//   | TextValue
+//   | IdentifierValue
+//   | CellValue
+//   | CellRangeValue;
+
+type ValueType = string | number | boolean;
+
+export type ValuePrim<T extends TypeNames<typeof ValuePrim> = undefined> =
+  VariantOf<typeof ValuePrim, T>;
+
+export type ValueComp<T extends TypeNames<typeof ValueComp> = undefined> =
+  VariantOf<typeof ValueComp, T>;
+
+const ValuePrim = variantModule({
+  integer: (value: number) => ({
+    value,
+    get: () => value,
+    set: (v: number) => (value = v),
+  }),
+  float: (value: number) => ({
+    value,
+    get: () => value,
+    set: (v: number) => (value = v),
+  }),
+  text: (value: string) => ({
+    value,
+    get: () => value,
+    set: (v: string) => (value = v),
+  }),
+  boolean: (value: boolean) => ({
+    value,
+    get: () => value,
+    set: (v: boolean) => (value = v),
+  }),
+});
+
+const ValueComp = variantModule({
+  identifier: (value: ValueType, name: string) => ({
+    value,
+    name,
+    get: () => value,
+    set: (v: any) => (value = v),
+  }),
+  cell: (value: ValueType, row: number, column: string, formula: string) => ({
+    value,
+    row,
+    column,
+    formula,
+    get: () => value,
+    set: (v: any) => (value = v),
+  }),
+});
+
+export type Value<T extends TypeNames<typeof Value> = undefined> = VariantOf<
+  typeof Value,
+  T
+>;
+
+const Value = variantModule({
+  ...variantList([
+    ValueComp.cell,
+    ValueComp.identifier,
+    ValuePrim.boolean,
+    ValuePrim.float,
+    ValuePrim.integer,
+    ValuePrim.text,
+  ]),
+  cellRange: (value: ValueType, cells: ValueComp<"cell">[]) => ({
+    cells,
+    value,
+    get: () => cells[0].get(),
+    set: (cells: any) => (cells = cells),
+  }),
+});
+
+const getLiteral = (value: Value) => {
+  return match(value, {
+    integer: (val) => Value.integer(val.get()),
+    float: (val) => Value.float(val.get()),
+    text: (val) => Value.text(val.get()),
+    boolean: (val) => undefined,
+    identifier: (val) => undefined,
+    cell: (val) => undefined,
+    cellRange: (val) => undefined,
+  });
+};

@@ -5,7 +5,7 @@ interface IVisitable {
   accept(visitor: IVisitor): void;
 }
 
-interface IVisitor {
+export interface IVisitor {
   visitProgram(element: Program): void;
   visitFunctionDefinition(element: FunctionDefinition): void;
   visitArgumentList(element: ArgumentList): void;
