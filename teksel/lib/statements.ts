@@ -16,8 +16,6 @@ export interface IVisitor {
   visitUseStatement(element: UseStatement): void;
   visitForEachStatement(element: ForEachStatement): void;
   visitAssignment(element: Assignment): void;
-  visitAssignmentPlusEquals(element: AssignmentPlusEquals): void;
-  visitAssignmentMinusEquals(element: AssignmentMinusEquals): void;
   visitOrExpression(element: OrExpression): void;
   visitAndExpression(element: AndExpression): void;
   visitLessThanExpression(element: LessThanExpression): void;
@@ -125,12 +123,7 @@ class ProgramPrinter implements IVisitor {
   public visitAssignment(element: Assignment): void {
     this.printAssignment(element, "Assignment");
   }
-  public visitAssignmentPlusEquals(element: AssignmentPlusEquals): void {
-    this.printAssignment(element, "AssignmentPlusEquals");
-  }
-  public visitAssignmentMinusEquals(element: AssignmentMinusEquals): void {
-    this.printAssignment(element, "AssignmentMinusEquals");
-  }
+
   public visitExpression(element: Expression): void {
     console.log("Expression: ");
     element.accept(this);
@@ -409,17 +402,6 @@ export class Assignment extends ASTNode implements IVisitable {
   }
   accept(visitor: IVisitor): void {
     visitor.visitAssignment(this);
-  }
-}
-
-export class AssignmentPlusEquals extends Assignment implements IVisitable {
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentPlusEquals(this);
-  }
-}
-export class AssignmentMinusEquals extends Assignment implements IVisitable {
-  accept(visitor: IVisitor): void {
-    visitor.visitAssignmentMinusEquals(this);
   }
 }
 

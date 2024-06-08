@@ -2,8 +2,6 @@ import {
   AddExpression,
   Assignee,
   Assignment,
-  AssignmentMinusEquals,
-  AssignmentPlusEquals,
   DivideExpression,
   EqualExpression,
   Expression,
@@ -44,7 +42,7 @@ export const multiCharTokens = {
   "!=": TokenType.T_NotEqOp,
   "+=": TokenType.T_PlusEqOp,
   "-=": TokenType.T_MinEqOp,
-}
+};
 
 export const additiveCharTokens = {
   "+": TokenType.T_AddOp,
@@ -62,7 +60,6 @@ type Fucuntion = (
   right: Expression
 ) => Assignment;
 
-
 export const assignmentConstructors = new Map<TokenType, Fucuntion>([
   [
     TokenType.T_AssignOp,
@@ -73,13 +70,21 @@ export const assignmentConstructors = new Map<TokenType, Fucuntion>([
   [
     TokenType.T_PlusEqOp,
     (position: Position, left: Assignee, right: Expression) => {
-      return new AssignmentPlusEquals(position, left, right);
+      return new Assignment(
+        position,
+        left,
+        new AddExpression(position, left, right)
+      );
     },
   ],
   [
     TokenType.T_MinEqOp,
     (position: Position, left: Assignee, right: Expression) => {
-      return new AssignmentMinusEquals(position, left, right);
+      return new Assignment(
+        position,
+        left,
+        new SubtractExpression(position, left, right)
+      );
     },
   ],
 ]);

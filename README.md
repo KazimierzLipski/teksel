@@ -90,7 +90,7 @@ def sum(range)
     sum = 0
     foreach cell in range
     {
-       sum += cell.value
+       sum += cell
     }
     return sum
 }
@@ -109,7 +109,7 @@ def main()
 ```
 def main()
 {
-    B1 = 43;
+    B1 = 43
     B2 = use 10 if B1>0 else 54
     # B2 should be 54
 }
@@ -123,7 +123,7 @@ def count(range)
     count = 0
     foreach cell in range
     {
-       count += use 1 if cell.value!=null else 0
+       count += use 1 if cell!=null else 0
     }
     return count
 }
@@ -185,6 +185,8 @@ def main()
     # A2 should be equal to "you"
 }
 ```
+
+average min max
 
 ## Gramatyka
 
