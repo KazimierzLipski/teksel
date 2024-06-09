@@ -21,8 +21,6 @@ export async function POST(request: Request) {
     const returnObject = visitor.lastCalculation;
     cellsRes = visitor.cells;
     error = visitor.error ? visitor.error.message : undefined;
-    // logThis(returnObject?.value);
-    // expect(returnObject?.get()).toBe(3);
   } catch (e: any) {
     console.error(e);
     error = e ? e.message : e;

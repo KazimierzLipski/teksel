@@ -285,7 +285,6 @@ export class Block extends ASTNode implements IVisitable {
     | Assignment
     | IfStatement
     | ForEachStatement
-    | string
     | ReturnStatement
   )[];
   constructor(
@@ -294,7 +293,6 @@ export class Block extends ASTNode implements IVisitable {
       | Assignment
       | IfStatement
       | ForEachStatement
-      | string
       | ReturnStatement
     )[]
   ) {
@@ -511,7 +509,7 @@ export class NegateExpression extends ASTNode implements IVisitable {
   }
 }
 
-// A10.value A15.formula b.value
+// A10.value A15.formula cell.formula
 
 export class Attribute extends ASTNode implements IVisitable {
   expression: Expression;

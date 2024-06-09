@@ -90,6 +90,7 @@ def main()
 {
     a = 10
     c = myFunc()
+
     x = a
     g = c
     z = 1 + 1
@@ -549,4 +550,23 @@ test("formula", () => {
   const returnObject = visitor.lastCalculation;
   logThis(returnObject?.value);
   expect(returnObject?.get()).toBe(3);
+});
+
+test("divBy0", () => {
+  const SR = new CharacterReader(
+    `def main()
+{
+  cell = A1
+  return cell
+}`
+  );
+  const parser = new Parser(new Lexer(SR));
+  const expression = parser.parseProgram();
+  logThis(expression);
+  expect(expression).toBeDefined();
+  let visitor = new Interpreter();
+  expression.accept(visitor);
+  const returnObject = visitor.lastCalculation;
+  logThis(returnObject);
+  // expect(returnObject?.get()).toBe(NaN);
 });

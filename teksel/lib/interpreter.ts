@@ -59,12 +59,9 @@ export class VariableManager {
     this.scopes.pop();
   }
 
-  onFunctionEntry(args: Map<any, any>) {
+  onFunctionEntry() {
     this.callContexts.push(this.scopes);
     this.scopes = [new Scope(new Map())];
-    for (const [key, value] of args) {
-      this.setVariable(key, value);
-    }
   }
 
   onFunctionExit() {
@@ -141,18 +138,20 @@ export class Interpreter implements IVisitor {
 
   error: undefined | any;
 
+  MAX_DEPTH = 100;
+
   constructor(cells?: Value<"cell">[][]) {
     if (cells !== undefined) {
-      for (let i = 0; i < cells.length; i++) {
-        for (let j = 0; j < cells[i].length; j++) {
-          if (cells[i][j] !== undefined) {
-            let value = cells[i][j].value.value;
+      for (const element of cells) {
+        for (let j = 0; j < element.length; j++) {
+          if (element[j] !== undefined) {
+            let value = element[j].value.value;
             if (typeof value === "string") {
               if (value.charAt(0) === "=") {
                 let computedValue: Value = this.evaluateFormula(value);
                 let prim = checkIsPrim(computedValue);
                 if (prim !== undefined) {
-                  cells[i][j].value = prim;
+                  element[j].value = prim;
                 } else
                   throw new InterpreterError(
                     ErrorType.E_TypeError,
@@ -182,16 +181,7 @@ export class Interpreter implements IVisitor {
   }
 
   visitProgram(element: Program) {
-    const definitions = Array.from(element.definitions.values());
-    for (const stmt of definitions) {
-      const result = stmt.accept(this);
-      if (this.isReturning) {
-        if (result !== undefined) {
-          return { value: result };
-        }
-        return;
-      }
-    }
+    this.functionsDefinitions = element.definitions;
     try {
       const mainFuncDef = this.functionsDefinitions.get("main");
       if (mainFuncDef === undefined) {
@@ -212,22 +202,19 @@ export class Interpreter implements IVisitor {
     }
   }
 
-  checkRecursionLimit(funId: string, position?: Position) {
-    if (this.prevRanFuncName == funId) {
-      this.recursionDepthCounter += 1;
-    } else {
-      this.recursionDepthCounter = 0;
-    }
-
-    if (this.recursionDepthCounter >= 100) {
+  addFunctionCall(funId: string, position?: Position) {
+    if (this.recursionDepthCounter >= this.MAX_DEPTH) {
       throw new InterpreterError(
         ErrorType.E_RecursionError,
         position,
-        `Maximum recursion depth of 100 has been reached`
+        `Maximum recursion depth of 100 has been reached calling: ${funId}`
       );
     }
+    this.recursionDepthCounter += 1;
+  }
 
-    this.prevRanFuncName = funId;
+  subFuntionCall() {
+    this.recursionDepthCounter -= 1;
   }
 
   evaluateArgs(args?: ArgumentList, params?: string[], position?: Position) {
@@ -258,35 +245,24 @@ export class Interpreter implements IVisitor {
     return evaluatedArgs;
   }
 
-  runFunction(funDef: FunctionDefinition, funCall: FunctionCall) {
-    const funcVars: Map<string, any> = new Map();
-    const evaluatedArgs = this.evaluateArgs(
-      funCall.argumentList,
-      funDef.parametersList,
-      funCall.position
-    );
-    for (const [key, value] of evaluatedArgs) {
-      this.varManager.setVariable(key, value);
-      funcVars.set(key, value.value);
-    }
-
-    this.varManager.onFunctionEntry(funcVars);
-    this.checkRecursionLimit(funDef.identifier, funCall.position);
-    funDef.block.accept(this);
-    this.isReturning = false;
-    this.varManager.onFunctionExit();
-  }
-
   visitFunctionDefinition(element: FunctionDefinition) {
-    const funcName = element.identifier;
-    if (this.functionsDefinitions.has(funcName)) {
+    this.varManager.onFunctionEntry();
+    if (this.argumentList.length !== element.parametersList.length) {
       throw new InterpreterError(
-        ErrorType.E_TypeError,
+        ErrorType.E_NameError,
         element.position,
-        `Name ${funcName} is the same as an existing function`
+        `Number of arguments and paramaters not equal`
       );
     }
-    this.functionsDefinitions.set(funcName, element);
+    for (let i = 0; i < this.argumentList.length; i++) {
+      this.varManager.setVariable(
+        element.parametersList[i],
+        this.argumentList[i]
+      );
+    }
+    element.block.accept(this);
+    this.isReturning = false;
+    this.varManager.onFunctionExit();
   }
 
   visitArgumentList(element?: ArgumentList) {
@@ -296,10 +272,12 @@ export class Interpreter implements IVisitor {
       arg.accept(this);
       argumentList.push(this.lastCalculation!);
     }
-    return argumentList;
+    this.argumentList = argumentList;
   }
+
   visitFunctionCall(element: FunctionCall) {
     const funcName = element.identifier;
+    this.addFunctionCall(funcName, element.position);
     const funDef = this.functionsDefinitions.get(funcName);
     if (funDef === undefined) {
       throw new InterpreterError(
@@ -309,12 +287,12 @@ export class Interpreter implements IVisitor {
       );
     }
     element.argumentList?.accept(this);
-    this.runFunction(funDef, element);
+    funDef.accept(this);
+    this.subFuntionCall();
   }
   visitBlock(element: Block) {
     this.varManager.onBlockEntry();
     for (const stmt of element.anyStatements) {
-      if (typeof stmt === "string") continue;
       stmt.accept(this);
       if (this.isReturning) {
         return;
@@ -362,40 +340,9 @@ export class Interpreter implements IVisitor {
   visitForEachStatement(element: ForEachStatement) {
     element.expression.accept(this);
     let expr = this.lastCalculation;
-    let iterable: Value<"text"> | Value<"cellRange"> | undefined;
-    if (isType(expr, "cellRange")) {
-      iterable = expr;
-    } else if (isType(expr, "text")) {
-      iterable = expr;
-    }
-    if (isType(expr, "identifier")) {
-      let innerValue: Value<"cellRange"> | ValuePrim | Value<"cell"> =
-        expr.value;
-      if (
-        typeof innerValue === "string" ||
-        typeof innerValue === "number" ||
-        typeof innerValue === "boolean"
-      ) {
-      } else if (isType(innerValue, "cellRange")) {
-        iterable = innerValue;
-      }
-    }
-    if (
-      isType(expr, "integer") ||
-      isType(expr, "float") ||
-      isType(expr, "boolean")
-    ) {
-      throw new InterpreterError(
-        ErrorType.E_TypeError,
-        element.position,
-        "Iterable must be a list"
-      );
-    }
-    if (isType(expr, "cell")) {
-      if (isType(expr.value, "text")) {
-        iterable = Value.text(expr.value.value);
-      }
-    }
+    this.throwIfUndefined(expr);
+    let iterable = getIter(expr!);
+    this.throwIfUndefined(iterable);
     const iterableName = element.identifier;
     const block = element.block;
 
@@ -406,37 +353,15 @@ export class Interpreter implements IVisitor {
         "Some expression is undefined"
       );
     }
-    if (isType(iterable, "cellRange")) {
-      for (const element of iterable.cells) {
-        this.varManager.setVariable(
-          iterableName,
-          Value.cell(
-            element.value,
-            element.row,
-            element.column,
-            element.formula
-          )
-        );
-        block.accept(this);
-        if (this.isReturning) {
-          return;
-        }
+    this.varManager.onBlockEntry();
+    for (const element of iterable) {
+      this.varManager.setVariable(iterableName, element);
+      block.accept(this);
+      if (this.isReturning) {
+        break;
       }
-    } else if (isType(iterable, "text")) {
-      for (const element of iterable.value) {
-        this.varManager.setVariable(iterableName, Value.text(element));
-        block.accept(this);
-        if (this.isReturning) {
-          return;
-        }
-      }
-    } else {
-      throw new InterpreterError(
-        ErrorType.E_TypeError,
-        element.position,
-        "Iterable must be a list"
-      );
     }
+    this.varManager.onBlockExit();
   }
   visitAssignment(element: Assignment) {
     element.assigned.accept(this);
@@ -466,36 +391,48 @@ export class Interpreter implements IVisitor {
     return { left, right };
   }
   throwIfAnyUndefined(left: any, right: any) {
-    if (left === undefined)
+    this.throwIfUndefined(left, "left expression is undefined");
+    this.throwIfUndefined(right, "right expression is undefined");
+  }
+  throwIfUndefined(object: any, message?: string) {
+    if (object === undefined) {
       throw new InterpreterError(
         ErrorType.E_ValueError,
         undefined,
-        "left expression is undefined"
+        message ?? "object is undefined"
       );
-    if (right === undefined)
-      throw new InterpreterError(
-        ErrorType.E_ValueError,
-        undefined,
-        "right expression is undefined"
-      );
-    return false;
+    }
   }
   visitExpression(expression: Expression) {
     return expression.accept(this);
   }
   visitOrExpression(element: OrExpression) {
-    const { leftValue, rightValue } = this.getValuesLeftRight(element);
-    this.throwIfAnyUndefined(leftValue, rightValue);
-    this.lastCalculation = Value.boolean(
-      (leftValue as boolean) || (rightValue as boolean)
-    );
+    element.leftExpression.accept(this);
+    const leftValue = this.lastCalculation?.get();
+    this.throwIfUndefined(leftValue);
+    if ((leftValue as boolean) === true) {
+      this.lastCalculation = Value.boolean(true);
+      return;
+    }
+    element.rightExpression.accept(this);
+    const rightValue = this.lastCalculation?.get();
+
+    this.throwIfUndefined(rightValue);
+    this.lastCalculation = Value.boolean(rightValue as boolean);
   }
   visitAndExpression(element: AndExpression) {
-    const { leftValue, rightValue } = this.getValuesLeftRight(element);
-    this.throwIfAnyUndefined(leftValue, rightValue);
-    this.lastCalculation = Value.boolean(
-      (leftValue as boolean) && (rightValue as boolean)
-    );
+    element.leftExpression.accept(this);
+    const leftValue = this.lastCalculation?.get();
+    this.throwIfUndefined(leftValue);
+    if ((leftValue as boolean) === false) {
+      this.lastCalculation = Value.boolean(false);
+      return;
+    }
+    element.rightExpression.accept(this);
+    const rightValue = this.lastCalculation?.get();
+
+    this.throwIfUndefined(rightValue);
+    this.lastCalculation = Value.boolean(rightValue as boolean);
   }
   visitLessThanExpression(element: LessThanExpression) {
     const { leftValue, rightValue } = this.getValuesLeftRight(element);
@@ -569,17 +506,15 @@ export class Interpreter implements IVisitor {
   };
   visitFormulaAttribute(element: AttributeFormula) {
     let val: Value | undefined = this.lastCalculation;
+    let tempAssignment = this.inAssignment;
     this.inAssignment = false;
     element.expression.accept(this);
-    this.inAssignment = true;
+    this.inAssignment = tempAssignment;
     const elem = this.lastCalculation;
     let cell: Value<"cell"> | undefined;
     if (isType(elem, "cell")) cell = elem;
     if (isType(elem, "identifier"))
       if (isType(elem.value, "cell")) cell = elem.value;
-    console.log("val", val);
-    console.log("cell", cell);
-    console.log("elem", elem);
     if (cell === undefined) {
       throw new InterpreterError(
         ErrorType.E_TypeError,
@@ -772,19 +707,28 @@ const ValuePrim = variantModule({
   integer: (value: number) => ({
     value,
     get: () => value,
+    getIter: () => undefined
   }),
   float: (value: number) => ({
     value,
     get: () => value,
+    getIter: () => undefined
   }),
   text: (value: string) => ({
     value,
-    getIter: () => value,
+    getIter: () => {
+      let valueStrings: Value<"text">[] = []
+      for (let letter of value) {
+        valueStrings.push(Value.text(letter))
+      }
+      return valueStrings;
+    },
     get: () => value,
   }),
   boolean: (value: boolean) => ({
     value,
     get: () => value,
+    getIter: () => undefined
   }),
 });
 
@@ -797,6 +741,7 @@ const ValueComp = variantModule({
     get: () => {
       return value.value;
     },
+    getIter: () => value.getIter()
   }),
 });
 
@@ -834,6 +779,7 @@ export const Value = variantModule({
     value,
     name,
     get: () => value.get(),
+    getIter: () => undefined
   }),
 });
 
@@ -870,6 +816,18 @@ const checkIsPrim = (value: Value): ValuePrim | undefined => {
     identifier: () => undefined,
     cell: () => undefined,
     cellRange: () => undefined,
+  });
+};
+
+const getIter = (value: Value): Value<"text">[] | ValueComp<"cell">[] | undefined => {
+  return match(value, {
+    integer: () => undefined,
+    float: () => undefined,
+    text: (v) => v.getIter(),
+    boolean: () => undefined,
+    identifier: () => undefined,
+    cell: (v) => v.value.getIter(),
+    cellRange: (v) => v.getIter(),
   });
 };
 
@@ -1411,7 +1369,12 @@ const getDivision = (left: Value, right: Value): Error | Value => {
   return match(left, {
     integer: (l) =>
       match(right, {
-        integer: (r) => Value.integer(l.value / r.value),
+        integer: (r) => {
+          if (r.value === 0) {
+            return new Error("Cannot divide integer by 0");
+          }
+          return Value.integer(l.value / r.value);
+        },
         float: (r) => Value.float(l.value / r.value),
         text: (r) => new Error("Cannot divide integer and text"),
         boolean: (r) => new Error("Cannot divide integer and boolean"),
